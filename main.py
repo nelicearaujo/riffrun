@@ -22,11 +22,18 @@ menu_title_font = pygame.font.SysFont("arialblack", 52, bold=True)
 menu_number_font = pygame.font.SysFont("arialblack", 64, bold=True)
 
 BACKGROUND_PATH = Path(__file__).resolve().parent / "assets" / "images" / "metal_storm_stage.png"
+PHASE2_BACKGROUND_PATH = Path(__file__).resolve().parent / "assets" / "images" / "visualFase2.jpeg"
 try:
     stage_background = pygame.image.load(str(BACKGROUND_PATH)).convert()
     stage_background = pygame.transform.smoothscale(stage_background, (WIDTH, HEIGHT))
 except (pygame.error, FileNotFoundError):
     stage_background = None
+
+try:
+    phase2_background = pygame.image.load(str(PHASE2_BACKGROUND_PATH)).convert()
+    phase2_background = pygame.transform.smoothscale(phase2_background, (WIDTH, HEIGHT))
+except (pygame.error, FileNotFoundError):
+    phase2_background = None
 
 
 PHASES = (
@@ -36,9 +43,9 @@ PHASES = (
         "accent": (225, 157, 48),
     },
     {
-        "title": "CIDADE EM RUÍNAS",
-        "subtitle": "O riff atravessa a fumaça",
-        "accent": (86, 198, 224),
+        "title": "AC/DC // HIGHWAY",
+        "subtitle": "A estrada ferve sob o palco",
+        "accent": (224, 65, 48),
     },
     {
         "title": "ÚLTIMO BIS",
@@ -46,6 +53,7 @@ PHASES = (
         "accent": (194, 74, 72),
     },
 )
+NODE_CENTERS = ((215, 506), (619, 424), (1017, 304))
 PROGRESS_PATH = Path(__file__).resolve().parent / "progress.json"
 
 
@@ -54,7 +62,7 @@ def load_unlocked_phases():
         progress = json.loads(PROGRESS_PATH.read_text(encoding="utf-8"))
         return max(1, min(3, int(progress.get("unlocked_phases", 1))))
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return 1
+        return 2
 
 
 def save_unlocked_phases(unlocked_phases):
@@ -69,13 +77,14 @@ def save_unlocked_phases(unlocked_phases):
 
 
 def draw_background(screen, camera_x, phase_number=1):
-    if stage_background:
-        screen.blit(stage_background, (0, 0))
+    background = phase2_background if phase_number == 2 and phase2_background else stage_background
+    if background:
+        screen.blit(background, (0, 0))
     else:
         screen.fill((9, 13, 25))
 
     # Cada fase recebe uma pequena assinatura de cor sem perder a leitura do palco.
-    phase_tints = ((0, 0, 0), (18, 12, 30), (7, 28, 35))
+    phase_tints = ((0, 0, 0), (42, 8, 8), (7, 28, 35))
     tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     tint.fill((*phase_tints[phase_number - 1], 24))
     screen.blit(tint, (0, 0))
@@ -101,7 +110,8 @@ def draw_hud(screen, player, phase_number):
     pygame.draw.rect(screen, (3, 6, 12), shadow, border_radius=5)
     pygame.draw.rect(screen, (18, 24, 34), panel, border_radius=5)
     pygame.draw.rect(screen, (91, 111, 128), panel, 3, border_radius=5)
-    pygame.draw.line(screen, (204, 145, 48), (28, 57), (330, 57), 2)
+    accent = PHASES[phase_number - 1]["accent"]
+    pygame.draw.line(screen, accent, (28, 57), (330, 57), 2)
 
     for x in (27, 331):
         for y in (27, 97):
@@ -119,11 +129,8 @@ def draw_hud(screen, player, phase_number):
 
 def menu_card_rects():
     """Áreas clicáveis dos três nós no mapa."""
-    return [
-        pygame.Rect(156, 464, 118, 118),
-        pygame.Rect(560, 354, 118, 118),
-        pygame.Rect(958, 254, 118, 118),
-    ]
+    return [pygame.Rect(center_x - 59, center_y - 59, 118, 118)
+            for center_x, center_y in NODE_CENTERS]
 
 
 def draw_map_cloud(screen, x, y, scale=1):
@@ -200,8 +207,7 @@ def draw_map_menu(screen, selected_phase, unlocked_phases):
     pygame.draw.polygon(screen, (115, 35, 43), bolt)
     pygame.draw.lines(screen, (237, 145, 67), False, bolt + [bolt[0]], 3)
 
-    node_centers = [(215, 506), (619, 424), (1017, 304)]
-    for index, (center_x, center_y) in enumerate(node_centers):
+    for index, (center_x, center_y) in enumerate(NODE_CENTERS):
         phase = PHASES[index]
         unlocked = index < unlocked_phases
         selected = index == selected_phase
@@ -250,7 +256,7 @@ def draw_menu(screen, selected_phase, unlocked_phases):
 
 
 def reset_game(phase_number):
-    return Player(120, 500), Level(phase_number), False, False
+    return Player(120, 500, phase_number), Level(phase_number), False, False
 
 
 player, level, victory, game_over = reset_game(1)
@@ -378,7 +384,9 @@ while running:
                 True, (240, 240, 240),
             )
             next_text = (
-                f"Fase {phase_number + 1} liberada!" if phase_number < 3 else "Todas as fases liberadas!"
+                f"Fase {phase_number + 1} liberada!"
+                if phase_number < len(PHASES)
+                else "Todas as fases liberadas!"
             )
             next_line = small_font.render(next_text, True, (111, 219, 188))
             retry = small_font.render("R: repetir fase   |   ENTER/M: voltar ao início", True, (220, 220, 220))

@@ -55,6 +55,22 @@ def load_character_frames():
     return frames
 
 
+def style_acdc_frames(frames):
+    styled_frames = []
+    for frame in frames:
+        styled = frame.copy()
+        for y in range(52, 90):
+            for x in range(styled.get_width()):
+                red, green, blue, alpha = styled.get_at((x, y))
+                if alpha and red < 90 and green < 90 and blue < 90:
+                    styled.set_at(
+                        (x, y),
+                        (max(24, red // 2), max(38, green // 2 + 20), min(150, blue + 50), alpha),
+                    )
+        styled_frames.append(styled)
+    return styled_frames
+
+
 class Player(pygame.sprite.Sprite):
     ANIMATIONS = {
         "idle": (0, 1, 2, 3),
@@ -74,10 +90,13 @@ class Player(pygame.sprite.Sprite):
         "hurt": 20,
     }
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, phase_number=1):
         super().__init__()
 
         self.frames = load_character_frames()
+        self.phase_number = phase_number
+        if phase_number == 2:
+            self.frames = style_acdc_frames(self.frames)
         self.image = self.frames[0]
 
         # A hitbox continua compacta e independente das poses mais abertas.
@@ -224,6 +243,9 @@ class Player(pygame.sprite.Sprite):
         sprite_rect = image.get_rect(midbottom=(draw_rect.centerx, draw_rect.bottom + 4))
         screen.blit(image, sprite_rect)
 
+        if self.phase_number == 2:
+            self.draw_acdc_details(screen, sprite_rect)
+
         attack_rect = self.get_attack_rect()
         if attack_rect:
             attack_draw = attack_rect.move(-camera_x, 0)
@@ -235,3 +257,30 @@ class Player(pygame.sprite.Sprite):
             else:
                 pygame.draw.arc(screen, (92, 205, 231), arc_rect, 2.0, 4.3, 5)
                 pygame.draw.arc(screen, (232, 239, 231), arc_rect, 2.15, 4.15, 2)
+
+    def draw_acdc_details(self, screen, sprite_rect):
+        cap_y = sprite_rect.y + 14
+        cap_center_x = sprite_rect.centerx
+        pygame.draw.polygon(screen, (38, 38, 39), [
+            (cap_center_x - 19, cap_y + 9), (cap_center_x - 13, cap_y),
+            (cap_center_x + 10, cap_y - 1), (cap_center_x + 19, cap_y + 8),
+            (cap_center_x + 9, cap_y + 13), (cap_center_x - 11, cap_y + 13),
+        ])
+        pygame.draw.line(screen, (87, 84, 78), (cap_center_x - 13, cap_y + 2),
+                         (cap_center_x + 10, cap_y + 1), 3)
+        bill_direction = self.facing
+        pygame.draw.polygon(screen, (29, 29, 30), [
+            (cap_center_x + bill_direction * 5, cap_y + 9),
+            (cap_center_x + bill_direction * 22, cap_y + 11),
+            (cap_center_x + bill_direction * 13, cap_y + 15),
+        ])
+
+        if self.animation_state in ("idle", "hurt"):
+            hand_x = sprite_rect.centerx + self.facing * 24
+            hand_y = sprite_rect.y + 56
+            microphone_x = hand_x + self.facing * 8
+            microphone_y = hand_y - 17
+            pygame.draw.line(screen, (55, 57, 58), (hand_x, hand_y),
+                             (microphone_x, microphone_y), 3)
+            pygame.draw.circle(screen, (170, 174, 169), (microphone_x, microphone_y - 3), 5)
+            pygame.draw.circle(screen, (43, 45, 46), (microphone_x, microphone_y - 3), 3)
