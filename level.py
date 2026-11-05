@@ -21,6 +21,9 @@ class Level:
         if self.phase_number == 2:
             self.build_highway_level()
             return
+        if self.phase_number == 3:
+            self.build_graveyard_level()
+            return
 
         # Chão dividido em trechos para criar buracos.
         ground_segments = [
@@ -100,6 +103,53 @@ class Level:
             ),
         ]
 
+    def build_graveyard_level(self):
+        ground_segments = [
+            (0, 850), (1000, 1650), (1800, 2600),
+            (2780, 3550), (3700, 4500), (4660, 5200),
+        ]
+        for start, end in ground_segments:
+            self.platforms.append(
+                Platform(start, GROUND_Y, end - start, HEIGHT - GROUND_Y, "ground", "grave")
+            )
+
+        floating = [
+            (420, 510, 170, 45, "grave_platform"),
+            (670, 450, 150, 52, "grave_moss"),
+            (1120, 450, 96, 109, "grave_crate"),
+            (1390, 455, 90, 105, "grave_skull"),
+            (1920, 490, 190, 66, "grave_moss"),
+            (2190, 440, 170, 44, "grave_platform"),
+            (2420, 400, 220, 86, "grave_arch"),
+            (2910, 510, 180, 47, "grave_platform"),
+            (3200, 445, 95, 110, "grave_skull"),
+            (3880, 490, 160, 55, "grave_moss"),
+            (4740, 470, 220, 86, "grave_arch"),
+        ]
+        for x, y, width, height, style in floating:
+            self.platforms.append(Platform(x, y, width, height, "platform", style))
+
+        guitar_positions = [
+            (470, 450), (720, 400), (1165, 390), (1440, 380),
+            (1970, 425), (2240, 390), (2470, 310), (2960, 460),
+            (3250, 370), (3950, 440), (4780, 415),
+            (600, 590), (1050, 590), (2050, 590), (3350, 590),
+        ]
+        for x, y in guitar_positions:
+            self.guitars.append(Guitar(x, y))
+
+        self.enemies = [
+            Enemy(720, 594, 600, 840),
+            Enemy(1240, 594, 1080, 1580),
+            Enemy(2050, 594, 1880, 2500),
+            Enemy(3100, 594, 2860, 3460),
+            Enemy(4010, 594, 3760, 4430),
+            Enemy(4820, 594, 4700, 5120),
+            FlyingEnemy(1450, 480, 1350, 1750),
+            FlyingEnemy(3300, 490, 3150, 3500),
+            HeavyEnemy(4270, 548, 4220, 4410, 4050, 4500),
+        ]
+
     def build_highway_level(self):
         ground_segments = [
             (0, 760), (900, 1510), (1650, 2350),
@@ -107,27 +157,27 @@ class Level:
         ]
         for start, end in ground_segments:
             self.platforms.append(
-                Platform(start, GROUND_Y, end - start, HEIGHT - GROUND_Y, "ground")
+                Platform(start, GROUND_Y, end - start, HEIGHT - GROUND_Y, "ground", "highway")
             )
 
         floating = [
-            (280, 520, 170, 30, "amp"), (560, 430, 180, 30, "beam"),
-            (810, 510, 120, 30, "case"), (1010, 500, 190, 58, "amp"),
-            (1260, 390, 160, 32, "beam"), (1510, 500, 130, 54, "case"),
-            (1780, 450, 200, 58, "amp"), (2100, 350, 160, 30, "beam"),
-            (2350, 500, 130, 54, "case"), (2620, 430, 180, 58, "amp"),
-            (2900, 350, 160, 30, "beam"), (3190, 500, 130, 54, "case"),
-            (3470, 440, 180, 58, "amp"), (3750, 350, 170, 30, "beam"),
-            (4070, 500, 140, 54, "case"), (4330, 420, 180, 58, "amp"),
-            (4640, 340, 160, 30, "beam"), (4900, 500, 140, 54, "case"),
+            (280, 500, 170, 53, "highway_platform"), (560, 430, 180, 59, "highway_platform2"),
+            (810, 510, 120, 38, "highway_bottom"), (1010, 380, 190, 117, "highway_arch"),
+            (1260, 390, 160, 50, "highway_platform"), (1510, 500, 130, 41, "highway_hazard"),
+            (1780, 430, 200, 66, "highway_platform2"), (2100, 350, 160, 99, "highway_arch"),
+            (2350, 450, 70, 92, "highway_lightning"), (2620, 430, 180, 59, "highway_platform2"),
+            (2900, 350, 160, 99, "highway_arch"), (3190, 450, 70, 78, "highway_bars"),
+            (3470, 430, 180, 59, "highway_platform2"), (3750, 340, 170, 105, "highway_arch"),
+            (4070, 450, 70, 84, "highway_crate"), (4330, 420, 180, 59, "highway_platform2"),
+            (4640, 340, 160, 99, "highway_arch"), (4900, 430, 60, 123, "highway_pillar"),
         ]
         for x, y, width, height, style in floating:
             self.platforms.append(Platform(x, y, width, height, "platform", style))
 
         guitar_positions = [
-            (335, 470), (620, 380), (855, 460), (1060, 450), (1300, 340),
-            (1550, 450), (1820, 400), (2140, 300), (2670, 380), (2940, 300),
-            (3510, 390), (3790, 300), (4380, 370), (4690, 290), (4950, 450),
+            (335, 450), (620, 380), (855, 460), (1060, 330), (1300, 340),
+            (1550, 450), (1820, 350), (2140, 300), (2670, 380), (2940, 300),
+            (3510, 360), (3790, 290), (4380, 370), (4690, 290), (4950, 380),
         ]
         for x, y in guitar_positions:
             self.guitars.append(Guitar(x, y))

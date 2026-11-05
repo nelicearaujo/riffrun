@@ -51,6 +51,74 @@ STEEL_LIGHT = (117, 132, 142)
 CYAN = (100, 210, 231)
 AMBER = (225, 157, 48)
 
+GRAVE_STONE_DARK = (12, 17, 29)
+GRAVE_STONE = (37, 48, 67)
+GRAVE_STONE_MID = (57, 70, 91)
+GRAVE_STONE_LIGHT = (111, 125, 145)
+GRAVE_MOSS = (57, 75, 48)
+
+PHASE3_PLATFORM_ATLAS_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "fase3_platforms_atlas.png"
+)
+
+PHASE3_ATLAS_RECTS = {
+    "ground": (20, 94, 2005, 195),
+    "grave_platform": (40, 374, 465, 122),
+    "grave_moss": (550, 373, 405, 140),
+    "grave_arch": (980, 365, 590, 230),
+    "grave_skull": (1595, 385, 185, 215),
+    "grave_crate": (1785, 385, 190, 215),
+    "grave_pillar": (1968, 360, 160, 240),
+}
+
+PHASE2_PLATFORM_ATLAS_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "fase2_platforms_atlas.png"
+)
+
+PHASE2_ATLAS_RECTS = {
+    "highway_ground": (18, 87, 2012, 180),
+    "highway_platform": (17, 332, 452, 142),
+    "highway_platform2": (516, 332, 445, 146),
+    "highway_bottom": (17, 500, 452, 145),
+    "highway_hazard": (516, 500, 455, 145),
+    "highway_arch": (1000, 332, 455, 280),
+    "highway_lightning": (1484, 409, 128, 168),
+    "highway_bars": (1617, 409, 150, 168),
+    "highway_crate": (1772, 409, 140, 168),
+    "highway_pillar": (1940, 378, 100, 205),
+}
+
+_phase3_platform_atlas = None
+_phase2_platform_atlas = None
+
+
+def load_phase3_platform_atlas():
+    global _phase3_platform_atlas
+    if _phase3_platform_atlas is None:
+        _phase3_platform_atlas = pygame.image.load(
+            str(PHASE3_PLATFORM_ATLAS_PATH)
+        )
+        if pygame.display.get_surface():
+            _phase3_platform_atlas = _phase3_platform_atlas.convert_alpha()
+    return _phase3_platform_atlas
+
+
+def load_phase2_platform_atlas():
+    global _phase2_platform_atlas
+    if _phase2_platform_atlas is None:
+        _phase2_platform_atlas = pygame.image.load(
+            str(PHASE2_PLATFORM_ATLAS_PATH)
+        )
+        if pygame.display.get_surface():
+            _phase2_platform_atlas = _phase2_platform_atlas.convert_alpha()
+    return _phase2_platform_atlas
+
 
 def draw_rivet(screen, x, y):
     pygame.draw.circle(screen, STEEL_LIGHT, (x, y), 3)
@@ -70,7 +138,16 @@ class Platform(pygame.sprite.Sprite):
             return
 
         if self.kind == "ground":
-            self.draw_ground(screen, r)
+            if self.style == "grave":
+                self.draw_grave_ground(screen, r)
+            elif self.style == "highway":
+                self.draw_phase2_atlas_sprite(screen, r, "highway_ground")
+            else:
+                self.draw_ground(screen, r)
+        elif self.style.startswith("grave"):
+            self.draw_grave_obstacle(screen, r)
+        elif self.style.startswith("highway"):
+            self.draw_phase2_atlas_sprite(screen, r, self.style)
         elif self.style == "brick":
             self.draw_bricks(screen, r)
         elif self.style == "case":
@@ -81,6 +158,73 @@ class Platform(pygame.sprite.Sprite):
             self.draw_pipe(screen, r)
         else:
             self.draw_beam(screen, r)
+
+    def draw_grave_ground(self, screen, r):
+        self.draw_phase3_atlas_sprite(screen, r, "ground")
+
+    def draw_grave_obstacle(self, screen, r):
+        self.draw_phase3_atlas_sprite(screen, r, self.style)
+
+    def draw_phase3_atlas_sprite(self, screen, r, sprite_name):
+        atlas = load_phase3_platform_atlas()
+        source_rect = PHASE3_ATLAS_RECTS[sprite_name]
+        source = atlas.subsurface(source_rect)
+        if sprite_name == "ground":
+            bounds = source.get_bounding_rect(min_alpha=10)
+            source = source.subsurface(bounds)
+        scaled_height = max(1, round(source.get_height() * r.w / source.get_width()))
+        sprite = pygame.transform.smoothscale(source, (r.w, scaled_height))
+        destination = sprite.get_rect(midtop=(r.centerx, r.top))
+        screen.blit(sprite, destination)
+
+    def draw_phase2_atlas_sprite(self, screen, r, sprite_name):
+        atlas = load_phase2_platform_atlas()
+        source = atlas.subsurface(PHASE2_ATLAS_RECTS[sprite_name])
+        if sprite_name == "highway_ground":
+            bounds = source.get_bounding_rect(min_alpha=10)
+            source = source.subsurface(bounds)
+        scaled_height = max(1, round(source.get_height() * r.w / source.get_width()))
+        sprite = pygame.transform.smoothscale(source, (r.w, scaled_height))
+        screen.blit(sprite, sprite.get_rect(midtop=r.midtop))
+
+    def draw_grave_arch(self, screen, r):
+        pygame.draw.rect(screen, GRAVE_STONE_DARK, r)
+        pygame.draw.rect(screen, GRAVE_STONE, (r.x, r.y, r.w, 18))
+        pygame.draw.rect(screen, GRAVE_STONE_LIGHT, (r.x, r.y, r.w, 4))
+
+        pillar_w = max(14, r.w // 8)
+        for x in (r.x + 18, r.right - pillar_w - 18):
+            pygame.draw.rect(screen, GRAVE_STONE_MID, (x, r.y + 16, pillar_w, r.h - 16))
+            pygame.draw.rect(screen, GRAVE_STONE_LIGHT, (x - 3, r.y + 16, pillar_w + 6, 5))
+            pygame.draw.rect(screen, GRAVE_STONE_DARK, (x - 5, r.bottom - 9, pillar_w + 10, 9))
+
+        arch_rect = pygame.Rect(r.x + 28, r.y + 18, r.w - 56, r.h + 8)
+        pygame.draw.arc(screen, GRAVE_STONE_MID, arch_rect, 0, 3.14, 8)
+        pygame.draw.arc(screen, GRAVE_STONE_LIGHT, arch_rect.inflate(-5, -4), 0, 3.14, 3)
+
+    def draw_grave_skull_block(self, screen, r):
+        pygame.draw.rect(screen, GRAVE_STONE_DARK, r, border_radius=5)
+        inner = r.inflate(-6, -6)
+        pygame.draw.rect(screen, GRAVE_STONE, inner, border_radius=3)
+        pygame.draw.rect(screen, GRAVE_STONE_LIGHT, inner, 3, border_radius=3)
+        center = inner.center
+        pygame.draw.circle(screen, (17, 22, 32), (center[0] - 8, center[1] - 3), 5)
+        pygame.draw.circle(screen, (17, 22, 32), (center[0] + 8, center[1] - 3), 5)
+        pygame.draw.polygon(screen, (17, 22, 32), [
+            (center[0] - 7, center[1] + 5),
+            (center[0] + 7, center[1] + 5),
+            (center[0], center[1] + 12),
+        ])
+        pygame.draw.line(screen, GRAVE_STONE_LIGHT,
+                         (center[0] - 8, center[1] + 14),
+                         (center[0] + 8, center[1] + 14), 2)
+
+    def draw_grave_crate(self, screen, r):
+        pygame.draw.rect(screen, GRAVE_STONE_DARK, r, border_radius=4)
+        pygame.draw.rect(screen, GRAVE_STONE, r.inflate(-5, -5), border_radius=3)
+        pygame.draw.rect(screen, GRAVE_STONE_LIGHT, r.inflate(-5, -5), 3, border_radius=3)
+        pygame.draw.line(screen, GRAVE_STONE_MID, r.topleft, r.bottomright, 3)
+        pygame.draw.line(screen, GRAVE_STONE_MID, r.topright, r.bottomleft, 3)
 
     def draw_ground(self, screen, r):
         pygame.draw.rect(screen, (12, 17, 24), r)
@@ -892,9 +1036,10 @@ class HeavyEnemy(pygame.sprite.Sprite):
                 frame, True, False
             )
 
-        draw_rect = frame.get_rect(
-            midbottom=self.rect.midbottom
-        )
+        visible_bounds = frame.get_bounding_rect(min_alpha=10)
+        draw_rect = frame.get_rect()
+        draw_rect.x = self.rect.centerx - frame.get_width() // 2
+        draw_rect.y = self.rect.bottom - visible_bounds.bottom
 
         draw_rect.x -= camera_x
 

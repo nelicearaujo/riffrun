@@ -11,8 +11,44 @@ SPRITESHEET_PATH = (
     / "images"
     / "metal_vocalist_spritesheet_final.png"
 )
+PHASE3_SPRITESHEET_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "metal_vocalist_phase3_spritesheet.png"
+)
+PHASE2_SPRITESHEET_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "metal_vocalist_phase2_spritesheet.png"
+)
 SPRITE_GRID = 4
 FRAME_CANVAS_SIZE = (110, 108)
+
+# A folha da FASE 3 tem poses com espaçamento irregular. As caixas abaixo
+# isolam cada personagem sem capturar partes da pose vizinha.
+PHASE3_FRAME_RECTS = (
+    (0, 0, 280, 330), (400, 0, 240, 330),
+    (640, 0, 240, 330), (880, 0, 240, 330),
+    (400, 0, 240, 330), (640, 0, 240, 330),
+    (880, 0, 240, 330), (1080, 0, 240, 330),
+    (1200, 330, 336, 340), (1200, 330, 336, 340),
+    (930, 330, 280, 340), (930, 330, 280, 340),
+    (0, 330, 380, 340), (400, 330, 280, 340),
+    (650, 330, 270, 340), (930, 330, 280, 340),
+)
+
+PHASE2_FRAME_RECTS = (
+    (60, 20, 190, 330), (270, 20, 200, 330),
+    (490, 20, 200, 330), (710, 20, 200, 330),
+    (270, 20, 200, 330), (490, 20, 200, 330),
+    (710, 20, 200, 330), (930, 20, 200, 330),
+    (1280, 350, 256, 350), (1280, 350, 256, 350),
+    (760, 350, 250, 350), (1030, 350, 260, 350),
+    (30, 350, 290, 350), (300, 350, 250, 350),
+    (530, 350, 240, 350), (460, 680, 190, 344),
+)
 
 
 def load_character_frames():
@@ -55,6 +91,53 @@ def load_character_frames():
     return frames
 
 
+def load_character_frames_from_rects(sheet_path, frame_rects):
+    sheet = pygame.image.load(str(sheet_path))
+    if pygame.display.get_surface():
+        sheet = sheet.convert_alpha()
+
+    cropped_frames = []
+    for rect in frame_rects:
+        frame = sheet.subsurface(rect).copy()
+        bounds = frame.get_bounding_rect(min_alpha=10)
+        cropped_frames.append(frame.subsurface(bounds).copy())
+
+    max_height = max(frame.get_height() for frame in cropped_frames)
+    scale = 98 / max_height
+    frames = []
+
+    for cropped in cropped_frames:
+        scaled_size = (
+            max(1, round(cropped.get_width() * scale)),
+            max(1, round(cropped.get_height() * scale)),
+        )
+        scaled = pygame.transform.scale(cropped, scaled_size)
+        canvas = pygame.Surface(FRAME_CANVAS_SIZE, pygame.SRCALPHA)
+        destination = scaled.get_rect(
+            midbottom=(FRAME_CANVAS_SIZE[0] // 2, FRAME_CANVAS_SIZE[1] - 4)
+        )
+        canvas.blit(scaled, destination)
+        frames.append(canvas)
+
+    return frames
+
+
+def load_phase2_character_frames():
+    """Carrega as poses do vocalista exclusivo da FASE 2."""
+    return load_character_frames_from_rects(
+        PHASE2_SPRITESHEET_PATH,
+        PHASE2_FRAME_RECTS,
+    )
+
+
+def load_phase3_character_frames():
+    """Carrega as poses do vocalista exclusivo da FASE 3."""
+    return load_character_frames_from_rects(
+        PHASE3_SPRITESHEET_PATH,
+        PHASE3_FRAME_RECTS,
+    )
+
+
 def style_acdc_frames(frames):
     styled_frames = []
     for frame in frames:
@@ -81,6 +164,24 @@ class Player(pygame.sprite.Sprite):
         "hurt": (15,),
     }
 
+    PHASE3_ANIMATIONS = {
+        "idle": (0,),
+        "walk": (1, 2, 3, 7),
+        "jump": (8, 9),
+        "fall": (10, 11),
+        "attack": (12, 13, 14),
+        "hurt": (15,),
+    }
+
+    PHASE2_ANIMATIONS = {
+        "idle": (0,),
+        "walk": (1, 2, 3, 7),
+        "jump": (8, 9),
+        "fall": (10, 11),
+        "attack": (12, 13, 14),
+        "hurt": (15,),
+    }
+
     FRAME_SPEEDS = {
         "idle": 14,
         "walk": 7,
@@ -93,10 +194,17 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, phase_number=1):
         super().__init__()
 
-        self.frames = load_character_frames()
         self.phase_number = phase_number
         if phase_number == 2:
-            self.frames = style_acdc_frames(self.frames)
+            self.frames = load_phase2_character_frames()
+            self.animations = self.PHASE2_ANIMATIONS
+        elif phase_number == 3:
+            self.frames = load_phase3_character_frames()
+            self.animations = self.PHASE3_ANIMATIONS
+        else:
+            self.frames = load_character_frames()
+            self.animations = self.ANIMATIONS
+
         self.image = self.frames[0]
 
         # A hitbox continua compacta e independente das poses mais abertas.
@@ -106,6 +214,7 @@ class Player(pygame.sprite.Sprite):
 
         self.on_ground = False
         self.facing = 1
+        self.jump_strength = -20 if phase_number == 3 else PLAYER_JUMP
         self.health = 3
         self.score = 0
 
@@ -131,7 +240,7 @@ class Player(pygame.sprite.Sprite):
         if (
             keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
         ) and self.on_ground:
-            self.vel.y = PLAYER_JUMP
+            self.vel.y = self.jump_strength
             self.on_ground = False
 
     def start_attack(self):
@@ -176,7 +285,7 @@ class Player(pygame.sprite.Sprite):
             self.animation_tick = 0
             self.animation_index = 0
 
-        frames = self.ANIMATIONS[self.animation_state]
+        frames = self.animations[self.animation_state]
         if self.animation_state == "attack":
             elapsed = self.attack_cooldown - self.attack_timer
             self.animation_index = min(len(frames) - 1, elapsed // 6)
@@ -240,11 +349,11 @@ class Player(pygame.sprite.Sprite):
         image = self.image if self.facing == 1 else pygame.transform.flip(
             self.image, True, False
         )
-        sprite_rect = image.get_rect(midbottom=(draw_rect.centerx, draw_rect.bottom + 4))
+        visible_bounds = image.get_bounding_rect(min_alpha=10)
+        sprite_rect = image.get_rect()
+        sprite_rect.centerx = draw_rect.centerx
+        sprite_rect.y = draw_rect.bottom - visible_bounds.bottom
         screen.blit(image, sprite_rect)
-
-        if self.phase_number == 2:
-            self.draw_acdc_details(screen, sprite_rect)
 
         attack_rect = self.get_attack_rect()
         if attack_rect:

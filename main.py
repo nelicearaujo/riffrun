@@ -39,7 +39,11 @@ BACKGROUND_PATH = (
 )
 
 PHASE2_BACKGROUND_PATH = (
-    BASE_DIR / "assets" / "images" / "visualFase2.jpeg"
+    BASE_DIR / "assets" / "images" / "visualFase2.png"
+)
+
+PHASE3_BACKGROUND_PATH = (
+    BASE_DIR / "assets" / "images" / "visualFase3.png"
 )
 
 
@@ -55,6 +59,7 @@ def load_background(path):
 
 stage_background = load_background(BACKGROUND_PATH)
 phase2_background = load_background(PHASE2_BACKGROUND_PATH)
+phase3_background = load_background(PHASE3_BACKGROUND_PATH)
 
 
 # CONFIGURAÇÃO DAS FASES
@@ -121,7 +126,9 @@ def save_unlocked_phases(unlocked_phases):
 
 def draw_background(screen, camera_x, phase_number=1):
 
-    if phase_number == 2 and phase2_background:
+    if phase_number == 3 and phase3_background:
+        background = phase3_background
+    elif phase_number == 2 and phase2_background:
         background = phase2_background
     else:
         background = stage_background
