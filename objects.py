@@ -631,32 +631,92 @@ class Platform(pygame.sprite.Sprite):
 
 
 class Guitar(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+
+    _sprites = None
+
+    def __init__(self, x, y, phase_number=1):
         super().__init__()
+
         self.rect = pygame.Rect(x, y, 28, 42)
         self.collected = False
+        self.phase_number = phase_number
+
+        if Guitar._sprites is None:
+            Guitar._sprites = self.load_sprites()
+
+    @staticmethod
+    def load_sprites():
+        """Carrega os quatro instrumentos do spritesheet."""
+
+        path = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / "images"
+            / "coletaveis_atlas.png"
+        )
+
+        sheet = pygame.image.load(str(path)).convert_alpha()
+        width, height = sheet.get_size()
+        sprites = []
+
+        for index in range(4):
+            left = round(index * width / 4)
+            right = round((index + 1) * width / 4)
+            frame = sheet.subsurface(
+                (left, 0, right - left, height)
+            ).copy()
+            bounds = frame.get_bounding_rect(min_alpha=10)
+            if bounds.width == 0 or bounds.height == 0:
+                raise ValueError(
+                    f"Coletável vazio no índice {index}"
+                )
+            frame = frame.subsurface(bounds).copy()
+            scale = min(
+                48 / frame.get_width(),
+                60 / frame.get_height()
+            )
+            new_size = (
+                max(1, round(frame.get_width() * scale)),
+                max(1, round(frame.get_height() * scale))
+            )
+            frame = pygame.transform.scale(frame, new_size)
+            sprites.append(frame)
+        return sprites
 
     def draw(self, screen, camera_x):
         if self.collected:
             return
+        sprite_index = {
+            1: 0,
+            2: 1,
+            3: 2
+        }.get(self.phase_number, 0)
+        image = self._sprites[sprite_index]
+        draw_rect = image.get_rect(
+            center=self.rect.center
+        )
 
-        r = self.rect.move(-camera_x, 0)
-        # Mini guitarra angular com brilho elétrico.
-        glow = pygame.Surface((52, 60), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (85, 207, 235, 45), (26, 30), 22)
-        screen.blit(glow, (r.centerx - 26, r.centery - 30))
-        pygame.draw.polygon(screen, (30, 36, 45), [
-            (r.x + 2, r.y + 31), (r.x + 13, r.y + 19), (r.x + 11, r.y + 34),
-            (r.x + 23, r.y + 25), (r.x + 18, r.y + 41), (r.x + 6, r.y + 38)
-        ])
-        pygame.draw.polygon(screen, (147, 162, 168), [
-            (r.x + 3, r.y + 31), (r.x + 13, r.y + 21), (r.x + 11, r.y + 34),
-            (r.x + 21, r.y + 27), (r.x + 17, r.y + 39), (r.x + 7, r.y + 37)
-        ], 2)
-        pygame.draw.line(screen, AMBER, (r.x + 13, r.y + 24), (r.x + 25, r.y + 2), 5)
-        pygame.draw.line(screen, (246, 210, 119), (r.x + 13, r.y + 24), (r.x + 25, r.y + 2), 2)
-        pygame.draw.circle(screen, CYAN, (r.x + 10, r.y + 31), 3)
-
+        draw_rect.x -= camera_x
+        # Cria um contorno claro ao redor do instrumento.
+        mask = pygame.mask.from_surface(image)
+        outline = mask.to_surface(
+            setcolor=(255, 220, 140),
+            unsetcolor=(0, 0, 0)
+        )
+        outline.set_colorkey((0, 0, 0))
+        # Contorno de 2 pixels.
+        for dx, dy in [
+            (-2, 0),
+            (2, 0),
+            (0, -2),
+            (0, 2),
+        ]:
+            screen.blit(
+                outline,
+                draw_rect.move(dx, dy)
+            )
+        # Desenha o instrumento por cima do contorno.
+        screen.blit(image, draw_rect)
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, min_x, max_x):
@@ -701,29 +761,50 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class GoalInstrument:
+
+    _image = None
+
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 70, 90)
+        if GoalInstrument._image is None:
+            GoalInstrument._image = self.load_image()
+
+    @staticmethod
+    def load_image():
+        path = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / "images"
+            / "coletavel_final.png"
+        )
+        image = pygame.image.load(
+            str(path)
+        ).convert_alpha()
+        bounds = image.get_bounding_rect(min_alpha=10)
+        if bounds.width == 0 or bounds.height == 0:
+            raise ValueError(
+                "A imagem do coletável final está vazia."
+            )
+        image = image.subsurface(bounds).copy()
+        scale = min(
+            95 / image.get_width(),
+            115 / image.get_height()
+        )
+        size = (
+            max(1, round(image.get_width() * scale)),
+            max(1, round(image.get_height() * scale))
+        )
+
+        return pygame.transform.scale(image, size)
 
     def draw(self, screen, camera_x):
-        r = self.rect.move(-camera_x, 0)
-        glow = pygame.Surface((110, 120), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (86, 209, 234, 42), (55, 65), 45)
-        screen.blit(glow, (r.centerx - 55, r.centery - 60))
-        pygame.draw.polygon(screen, (35, 42, 51), [
-            (r.x + 5, r.y + 75), (r.x + 29, r.y + 48), (r.x + 24, r.y + 82),
-            (r.x + 57, r.y + 59), (r.x + 45, r.y + 88), (r.x + 17, r.y + 86)
-        ])
-        pygame.draw.polygon(screen, (171, 183, 186), [
-            (r.x + 7, r.y + 74), (r.x + 29, r.y + 50), (r.x + 25, r.y + 80),
-            (r.x + 54, r.y + 61), (r.x + 43, r.y + 85), (r.x + 18, r.y + 84)
-        ], 3)
-        pygame.draw.line(screen, (211, 162, 63), (r.x + 30, r.y + 55), (r.x + 58, r.y + 7), 9)
-        pygame.draw.line(screen, (241, 211, 129), (r.x + 30, r.y + 55), (r.x + 58, r.y + 7), 3)
-        pygame.draw.polygon(screen, (97, 111, 121), [
-            (r.x + 53, r.y + 11), (r.x + 62, r.y), (r.x + 67, r.y + 7), (r.x + 59, r.y + 17)
-        ])
-        pygame.draw.circle(screen, CYAN, (r.x + 26, r.y + 70), 5)
+        image = self._image
+        draw_rect = image.get_rect(
+            center=self.rect.center
+        )
 
+        draw_rect.x -= camera_x
+        screen.blit(image, draw_rect)
 
 class FlyingEnemy(pygame.sprite.Sprite):
     """

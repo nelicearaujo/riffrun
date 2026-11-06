@@ -76,7 +76,9 @@ class Level:
         ]
 
         for x, y in guitar_positions:
-            self.guitars.append(Guitar(x, y))
+            self.guitars.append(
+                Guitar(x, y, self.phase_number)
+            )
 
         # INIMIGOS DA FASE
 

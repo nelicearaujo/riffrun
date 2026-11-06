@@ -61,6 +61,17 @@ stage_background = load_background(BACKGROUND_PATH)
 phase2_background = load_background(PHASE2_BACKGROUND_PATH)
 phase3_background = load_background(PHASE3_BACKGROUND_PATH)
 
+HOME_BACKGROUND_PATH = (
+    BASE_DIR / "assets" / "images" / "menu_inicial.png"
+)
+
+home_background = load_background(HOME_BACKGROUND_PATH)
+
+PHASE_MENU_PATH = (
+    BASE_DIR / "assets" / "images" / "menu_fases.png"
+)
+
+phase_menu_background = load_background(PHASE_MENU_PATH)
 
 # CONFIGURAÇÃO DAS FASES
 
@@ -264,504 +275,207 @@ def draw_hud(screen, player, phase_number):
     screen.blit(score_text, (39, 64))
 
 
-# MENU - MAPA DE CAMPANHA
+# MENU - FASES
 
 def menu_card_rects():
+    """Áreas clicáveis sobre os cards da imagem."""
 
     return [
-        pygame.Rect(
-            center_x - 59,
-            center_y - 59,
-            118,
-            118
-        )
-        for center_x, center_y in NODE_CENTERS
+        pygame.Rect(100, 194, 356, 433),
+        pygame.Rect(474, 194, 336, 433),
+        pygame.Rect(826, 194, 359, 433),
     ]
-
 
 def draw_map_menu(screen, selected_phase, unlocked_phases):
+    """Desenha a seleção de fases usando a imagem personalizada."""
 
-    top_color = (7, 11, 20)
-    bottom_color = (18, 27, 42)
+    if phase_menu_background is not None:
+        screen.blit(phase_menu_background, (0, 0))
+    else:
+        screen.fill((12, 18, 30))
 
-    # Fundo em degradê
-    for y in range(HEIGHT):
+    cards = menu_card_rects()
+    mouse_pos = pygame.mouse.get_pos()
 
-        blend = y / HEIGHT
-
-        color = tuple(
-            round(
-                top_color[i] * (1 - blend)
-                + bottom_color[i] * blend
-            )
-            for i in range(3)
-        )
-
-        pygame.draw.line(
-            screen, color, (0, y), (WIDTH, y)
-        )
-
-    pygame.draw.rect(
-        screen,
-        (3, 5, 10),
-        (22, 20, WIDTH - 44, HEIGHT - 40),
-        border_radius=7
+    lock_font = pygame.font.SysFont(
+        "consolas",
+        27,
+        bold=True
     )
 
-    pygame.draw.rect(
-        screen,
-        (49, 57, 70),
-        (28, 26, WIDTH - 56, HEIGHT - 52),
-        2,
-        border_radius=5
-    )
-
-    map_rect = pygame.Rect(
-        48, 150, WIDTH - 96, 458
-    )
-
-    pygame.draw.rect(
-        screen, (10, 28, 43), map_rect, border_radius=4
-    )
-
-    pygame.draw.rect(
-        screen, (39, 74, 91), map_rect, 2, border_radius=4
-    )
-
-    # Textura da água
-    for y in range(map_rect.top + 18, map_rect.bottom - 8, 24):
-
-        for x in range(
-            map_rect.left + (y % 37),
-            map_rect.right,
-            92
-        ):
-
-            pygame.draw.line(
-                screen,
-                (16, 54, 70),
-                (x, y),
-                (x + 34, y - 7),
-                2
-            )
-
-            pygame.draw.line(
-                screen,
-                (14, 43, 60),
-                (x + 8, y + 6),
-                (x + 48, y + 1),
-                1
-            )
-
-    for x in range(
-        map_rect.left + 35,
-        map_rect.right,
-        92
-    ):
-
-        pygame.draw.line(
-            screen,
-            (19, 47, 61),
-            (x, map_rect.top),
-            (x + 130, map_rect.bottom),
-            1
-        )
-
-    # Ilha do mapa
-    island = [
-        (89, 530),
-        (111, 286),
-        (242, 203),
-        (408, 175),
-        (566, 218),
-        (707, 184),
-        (900, 205),
-        (1091, 260),
-        (1192, 431),
-        (1154, 548),
-        (893, 564),
-        (659, 541),
-        (432, 568),
-        (220, 551),
-    ]
-
-    pygame.draw.polygon(
-        screen, (18, 27, 33), island
-    )
-
-    pygame.draw.polygon(
-        screen, (68, 48, 54), island, 4
-    )
-
-    pygame.draw.lines(
-        screen,
-        (112, 43, 47),
-        False,
-        island + [island[0]],
-        2
-    )
-
-    # Montanhas
-    mountains = (
-        [
-            (142, 377),
-            (224, 242),
-            (295, 371),
-            (351, 267),
-            (420, 407),
-        ],
-        [
-            (424, 364),
-            (510, 227),
-            (595, 371),
-            (687, 238),
-            (782, 403),
-        ],
-        [
-            (795, 354),
-            (878, 246),
-            (956, 369),
-            (1047, 281),
-            (1148, 426),
-        ],
-    )
-
-    for points in mountains:
-
-        pygame.draw.polygon(
-            screen, (27, 37, 43), points
-        )
-
-        pygame.draw.lines(
-            screen,
-            (74, 82, 87),
-            False,
-            points,
-            2
-        )
-
-    # Estruturas industriais
-    buildings = (
-        (180, 405, 55, 88),
-        (330, 371, 39, 122),
-        (870, 386, 48, 106),
-        (1080, 373, 58, 105),
-    )
-
-    for x, y, w, h in buildings:
-
-        pygame.draw.rect(
-            screen,
-            (12, 18, 25),
-            (x, y, w, h)
-        )
-
-        pygame.draw.rect(
-            screen,
-            (74, 79, 83),
-            (x, y, w, 3)
-        )
-
-        for window_y in range(
-            y + 17,
-            y + h - 8,
-            22
-        ):
-
-            pygame.draw.rect(
-                screen,
-                (161, 68, 48),
-                (x + 9, window_y, 6, 5)
-            )
-
-            pygame.draw.rect(
-                screen,
-                (161, 68, 48),
-                (x + w - 15, window_y, 6, 5)
-            )
-
-    # Caminho entre as fases
-    route = [
-        (215, 506),
-        (400, 455),
-        (619, 424),
-        (823, 389),
-        (1017, 304),
-    ]
-
-    pygame.draw.lines(
-        screen, (51, 14, 24), False, route, 42
-    )
-
-    pygame.draw.lines(
-        screen, (116, 34, 42), False, route, 28
-    )
-
-    pygame.draw.lines(
-        screen, (212, 77, 48), False, route, 14
-    )
-
-    pygame.draw.lines(
-        screen, (245, 157, 69), False, route, 4
-    )
-
-    for x, y in route[1:-1]:
-
-        pygame.draw.circle(
-            screen, (145, 49, 46), (x, y), 11, 2
-        )
-
-    # Símbolo elétrico
-    bolt = [
-        (706, 238),
-        (729, 238),
-        (710, 272),
-        (733, 272),
-        (691, 326),
-        (702, 283),
-        (681, 283),
-    ]
-
-    pygame.draw.polygon(
-        screen, (115, 35, 43), bolt
-    )
-
-    pygame.draw.lines(
-        screen,
-        (237, 145, 67),
-        False,
-        bolt + [bolt[0]],
-        3
-    )
-
-    # Nós das três fases
-    for index, (center_x, center_y) in enumerate(NODE_CENTERS):
-
-        phase = PHASES[index]
+    for index, rect in enumerate(cards):
 
         unlocked = index < unlocked_phases
         selected = index == selected_phase
+        hovered = rect.collidepoint(mouse_pos)
 
-        accent = (
-            phase["accent"]
-            if unlocked
-            else (81, 91, 101)
-        )
+        # Escurece as fases ainda bloqueadas.
+        if not unlocked:
 
-        if selected:
-
-            glow = pygame.Surface(
-                (170, 170),
+            overlay = pygame.Surface(
+                rect.size,
                 pygame.SRCALPHA
             )
 
-            pygame.draw.circle(
-                glow,
-                (*accent, 48),
-                (85, 85),
-                64
-            )
+            overlay.fill((0, 0, 0, 145))
 
             screen.blit(
-                glow,
-                (center_x - 85, center_y - 85)
+                overlay,
+                rect.topleft
             )
 
-            pygame.draw.circle(
-                screen,
-                (222, 141, 57),
-                (center_x, center_y),
-                59,
-                2
+            label = lock_font.render(
+                "BLOQUEADA",
+                True,
+                (225, 220, 220)
             )
 
-        pygame.draw.circle(
-            screen,
-            (4, 7, 12),
-            (center_x + 4, center_y + 7),
-            49
-        )
-
-        pygame.draw.circle(
-            screen,
-            (31, 38, 46),
-            (center_x, center_y),
-            47
-        )
-
-        pygame.draw.circle(
-            screen,
-            accent,
-            (center_x, center_y),
-            42,
-            3
-        )
-
-        pygame.draw.circle(
-            screen,
-            (15, 21, 28),
-            (center_x, center_y),
-            35
-        )
-
-        number = menu_number_font.render(
-            str(index + 1),
-            True,
-            accent
-        )
-
-        screen.blit(
-            number,
-            number.get_rect(
-                center=(center_x, center_y - 2)
+            label_rect = label.get_rect(
+                center=rect.center
             )
-        )
 
-        if not unlocked:
+            screen.blit(label, label_rect)
+
+        # Destaca a fase selecionada.
+        elif selected or hovered:
 
             pygame.draw.rect(
                 screen,
-                (90, 101, 109),
-                (center_x - 11, center_y + 19, 22, 17),
-                2,
-                border_radius=3
+                (255, 220, 135),
+                rect.inflate(-8, -8),
+                3,
+                border_radius=8
             )
+def home_button_rects():
+    """
+    Áreas clicáveis dos botões da imagem inicial.
 
-            pygame.draw.arc(
-                screen,
-                (90, 101, 109),
-                (center_x - 7, center_y + 7, 14, 21),
-                0.1,
-                3.05,
-                2
-            )
+    Coordenadas ajustadas para 1280x720.
+    """
 
-        elif index + 1 < unlocked_phases:
+    return {
+        "play": pygame.Rect(480, 308, 320, 65),
+        "options": pygame.Rect(492, 387, 296, 60),
+        "credits": pygame.Rect(492, 458, 296, 60),
+        "quit": pygame.Rect(492, 529, 296, 60),
+    }
 
-            pygame.draw.line(
-                screen,
-                (103, 205, 166),
-                (center_x - 14, center_y + 2),
-                (center_x - 3, center_y + 13),
-                4
-            )
+def draw_info_panel(screen, title, lines):
+    """Desenha um painel informativo sobre o menu inicial."""
 
-            pygame.draw.line(
-                screen,
-                (103, 205, 166),
-                (center_x - 3, center_y + 13),
-                (center_x + 17, center_y - 12),
-                4
-            )
+    draw_home(screen)
 
-        label = small_font.render(
-            f"FASE {index + 1}  //  {phase['title']}",
+    overlay = pygame.Surface(
+        (WIDTH, HEIGHT),
+        pygame.SRCALPHA
+    )
+
+    overlay.fill((0, 0, 0, 185))
+
+    screen.blit(overlay, (0, 0))
+
+    panel = pygame.Rect(
+        WIDTH // 2 - 290,
+        HEIGHT // 2 - 190,
+        580,
+        380
+    )
+
+    pygame.draw.rect(
+        screen,
+        (19, 25, 39),
+        panel,
+        border_radius=12
+    )
+
+    pygame.draw.rect(
+        screen,
+        (200, 75, 65),
+        panel,
+        3,
+        border_radius=12
+    )
+
+    title_font = pygame.font.SysFont(
+        "consolas",
+        42,
+        bold=True
+    )
+
+    text_font = pygame.font.SysFont(
+        "consolas",
+        23
+    )
+
+    title_image = title_font.render(
+        title,
+        True,
+        (245, 235, 225)
+    )
+
+    screen.blit(
+        title_image,
+        title_image.get_rect(
+            centerx=panel.centerx,
+            top=panel.y + 32
+        )
+    )
+
+    for index, line in enumerate(lines):
+
+        text_image = text_font.render(
+            line,
             True,
-            accent
-        )
-
-        label_bg = pygame.Rect(
-            center_x - label.get_width() // 2 - 8,
-            center_y + 58,
-            label.get_width() + 16,
-            27
-        )
-
-        pygame.draw.rect(
-            screen,
-            (7, 12, 18),
-            label_bg,
-            border_radius=3
-        )
-
-        pygame.draw.rect(
-            screen,
-            (51, 62, 71),
-            label_bg,
-            1,
-            border_radius=3
+            (220, 225, 235)
         )
 
         screen.blit(
-            label,
-            label.get_rect(center=label_bg.center)
+            text_image,
+            text_image.get_rect(
+                centerx=panel.centerx,
+                top=panel.y + 120 + index * 42
+            )
         )
 
-    eyebrow = small_font.render(
-        "RIFF RUN  //  MAPA DE CAMPANHA",
+    hint = text_font.render(
+        "ESC - VOLTAR",
         True,
-        (137, 157, 168)
-    )
-
-    title = menu_title_font.render(
-        "ESCOLHA SEU CAMINHO",
-        True,
-        (226, 231, 226)
-    )
-
-    subtitle = small_font.render(
-        "Uma rota. Três palcos. Nenhum retorno.",
-        True,
-        (174, 139, 111)
-    )
-
-    screen.blit(
-        eyebrow,
-        (
-            WIDTH // 2 - eyebrow.get_width() // 2,
-            38
-        )
-    )
-
-    screen.blit(
-        title,
-        (
-            WIDTH // 2 - title.get_width() // 2,
-            58
-        )
-    )
-
-    screen.blit(
-        subtitle,
-        (
-            WIDTH // 2 - subtitle.get_width() // 2,
-            116
-        )
-    )
-
-    hint = small_font.render(
-        "SETAS: SELECIONAR  |  ENTER: JOGAR  |  ESC: SAIR",
-        True,
-        (193, 202, 204)
-    )
-
-    hint_panel = pygame.Rect(
-        WIDTH // 2 - hint.get_width() // 2 - 18,
-        649,
-        hint.get_width() + 36,
-        42
-    )
-
-    pygame.draw.rect(
-        screen,
-        (10, 16, 24),
-        hint_panel,
-        border_radius=4
-    )
-
-    pygame.draw.rect(
-        screen,
-        (92, 72, 65),
-        hint_panel,
-        2,
-        border_radius=4
+        (235, 155, 110)
     )
 
     screen.blit(
         hint,
-        (hint_panel.x + 18, hint_panel.y + 10)
+        hint.get_rect(
+            centerx=panel.centerx,
+            bottom=panel.bottom - 22
+        )
     )
 
+def draw_home(screen):
+    """Desenha o menu inicial."""
+
+    if home_background is not None:
+        screen.blit(home_background, (0, 0))
+    else:
+        screen.fill((12, 18, 30))
+
+    # Destaca discretamente o botão sob o mouse.
+    mouse_pos = pygame.mouse.get_pos()
+
+    for rect in home_button_rects().values():
+
+        if rect.collidepoint(mouse_pos):
+
+            highlight = pygame.Surface(
+                rect.size,
+                pygame.SRCALPHA
+            )
+
+            highlight.fill((255, 255, 255, 28))
+
+            screen.blit(highlight, rect.topleft)
+
+            break
 
 def draw_menu(screen, selected_phase, unlocked_phases):
     draw_map_menu(
@@ -790,7 +504,7 @@ selected_phase = 0
 
 unlocked_phases = load_unlocked_phases()
 
-screen_mode = "menu"
+screen_mode = "home"
 running = True
 
 # Inimigos atingidos durante o ataque atual
@@ -817,6 +531,53 @@ while running:
         ):
             audio.toggle_mute()
             continue
+        # EVENTOS DA TELA INICIAL
+
+        if screen_mode == "home":
+
+            if event.type == pygame.KEYDOWN:
+
+                if event.key in (
+                    pygame.K_RETURN,
+                    pygame.K_KP_ENTER
+                ):
+                    screen_mode = "menu"
+
+                elif event.key == pygame.K_ESCAPE:
+                    running = False
+
+            elif (
+                event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+            ):
+
+                buttons = home_button_rects()
+
+                if buttons["play"].collidepoint(event.pos):
+                    screen_mode = "menu"
+
+                elif buttons["options"].collidepoint(event.pos):
+                    screen_mode = "options"
+
+                elif buttons["credits"].collidepoint(event.pos):
+                    screen_mode = "credits"
+
+                elif buttons["quit"].collidepoint(event.pos):
+                    running = False
+
+            continue
+
+        # EVENTOS DAS OPÇÕES E CRÉDITOS
+
+        if screen_mode in ("options", "credits"):
+
+            if (
+                event.type == pygame.KEYDOWN
+                and event.key == pygame.K_ESCAPE
+            ):
+                screen_mode = "home"
+
+            continue
 
         # EVENTOS DO MENU
 
@@ -825,7 +586,7 @@ while running:
             if event.type == pygame.KEYDOWN:
 
                 if event.key == pygame.K_ESCAPE:
-                    running = False
+                    screen_mode = "home"
 
                 elif event.key in (
                     pygame.K_UP,
@@ -920,7 +681,7 @@ while running:
 
         # EVENTOS DURANTE O JOGO
 
-        else:
+        elif screen_mode == "playing":
 
             # Teclado
             if event.type == pygame.KEYDOWN:
@@ -1152,7 +913,35 @@ while running:
 
     # DESENHO DA TELA
 
-    if screen_mode == "menu":
+    if screen_mode == "home":
+
+        draw_home(screen)
+
+    elif screen_mode == "options":
+
+        draw_info_panel(
+            screen,
+            "OPCOES",
+            [
+                "V - ATIVAR/DESATIVAR SOM",
+                "ESC - VOLTAR",
+            ]
+        )
+
+    elif screen_mode == "credits":
+
+        draw_info_panel(
+            screen,
+            "CREDITOS",
+            [
+                "RIFF RUN",
+                "Desenvolvimento: Equipe Riff Run",
+                "Projeto academico",
+                "Programacao para Jogos",
+            ]
+        )
+
+    elif screen_mode == "menu":
 
         draw_menu(
             screen,
@@ -1160,7 +949,12 @@ while running:
             unlocked_phases
         )
 
-    else:
+    elif screen_mode == "playing":
+
+        camera_x = (
+            player.rect.centerx - WIDTH // 2
+
+        )
 
         camera_x = (
             player.rect.centerx - WIDTH // 2
