@@ -4,6 +4,8 @@ from objects import (
     Guitar,
     Enemy,
     FlyingEnemy,
+    CloudEnemy,
+    BoneBatEnemy,
     HeavyEnemy,
     GoalInstrument,
 )
@@ -87,12 +89,13 @@ class Level:
             Enemy(4010, 594, 3760, 4430),
             Enemy(4820, 594, 4700, 5120),
 
-            # Morcegos guitarristas
-            FlyingEnemy(
+            # Nuvens de relâmpagos da fase 1
+            CloudEnemy(
                 1450, 480,
                 1350, 1750
             ),
-            FlyingEnemy(
+
+            CloudEnemy(
                 3300, 490,
                 3150, 3500
             ),
@@ -152,9 +155,15 @@ class Level:
             Enemy(3100, 594, 2860, 3460),
             Enemy(4010, 594, 3760, 4430),
             Enemy(4820, 594, 4700, 5120),
-            FlyingEnemy(1450, 480, 1350, 1750),
-            FlyingEnemy(3300, 490, 3150, 3500),
-            HeavyEnemy(4270, 548, 4220, 4410, 4050, 4500),
+            # Morcegos ósseos da fase 3
+            BoneBatEnemy(
+                1450, 480,
+                1350, 1750
+            ),
+            BoneBatEnemy(
+                3300, 490,
+                3150, 3500
+            ),            HeavyEnemy(4270, 548, 4220, 4410, 4050, 4500),
         ]
 
     def build_highway_level(self):

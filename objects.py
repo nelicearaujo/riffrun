@@ -44,6 +44,192 @@ def load_enemy_frames(filename, frame_size):
 
     return frames
 
+def load_cloud_frames():
+    """Carrega as animações da nuvem de relâmpagos."""
+
+    path = (
+        Path(__file__).resolve().parent
+        / "assets"
+        / "images"
+        / "nuvem_relampago_atlas.png"
+    )
+
+    sheet = pygame.image.load(str(path)).convert_alpha()
+
+    # Recortes: x, y, largura, altura.
+    # Cinco poses de voo e uma de ataque.
+    frame_rects = [
+        (0, 0, 305, 320),
+        (305, 0, 300, 320),
+        (605, 0, 290, 320),
+        (895, 0, 305, 320),
+        (1200, 0, 336, 320),
+        (305, 340, 310, 290),
+    ]
+
+    frames = []
+
+    for rect in frame_rects:
+        frame = sheet.subsurface(rect).copy()
+
+        bounds = frame.get_bounding_rect(min_alpha=10)
+
+        if bounds.width == 0 or bounds.height == 0:
+            raise ValueError(
+                f"Recorte vazio no spritesheet da nuvem: {rect}"
+            )
+
+        frame = frame.subsurface(bounds).copy()
+
+        # Mantém a proporção original da nuvem.
+        scale = min(
+            112 / frame.get_width(),
+            96 / frame.get_height()
+        )
+
+        new_size = (
+            max(1, round(frame.get_width() * scale)),
+            max(1, round(frame.get_height() * scale))
+        )
+
+        frame = pygame.transform.scale(frame, new_size)
+
+        canvas = pygame.Surface((112, 96), pygame.SRCALPHA)
+
+        canvas.blit(
+            frame,
+            frame.get_rect(center=(56, 48))
+        )
+
+        frames.append(canvas)
+
+    return frames
+
+def load_cloud_effects():
+    """
+    Carrega os efeitos especiais da nuvem:
+    - Projétil elétrico
+    - Quatro quadros da animação de derrota
+    """
+
+    path = (
+        Path(__file__).resolve().parent
+        / "assets"
+        / "images"
+        / "nuvem_relampago_atlas.png"
+    )
+
+    sheet = pygame.image.load(str(path)).convert_alpha()
+
+    def crop_effect(rect, max_width, max_height):
+        image = sheet.subsurface(rect).copy()
+
+        bounds = image.get_bounding_rect(min_alpha=10)
+
+        if bounds.width == 0 or bounds.height == 0:
+            raise ValueError(f"Efeito vazio: {rect}")
+
+        image = image.subsurface(bounds).copy()
+
+        scale = min(
+            max_width / image.get_width(),
+            max_height / image.get_height()
+        )
+
+        size = (
+            max(1, round(image.get_width() * scale)),
+            max(1, round(image.get_height() * scale))
+        )
+
+        return pygame.transform.scale(image, size)
+
+    # Raio da terceira linha do spritesheet.
+    lightning = crop_effect(
+        (890, 630, 205, 115),
+        42,
+        25
+    )
+
+    # Sequência de desaparecimento da quarta linha.
+    death_rects = [
+        (0, 750, 310, 274),
+        (350, 750, 380, 274),
+        (740, 750, 280, 274),
+        (1020, 750, 260, 274),
+    ]
+
+    death_frames = [
+        crop_effect(rect, 112, 96)
+        for rect in death_rects
+    ]
+
+    return lightning, death_frames
+
+def load_bone_bat_frames():
+    """Carrega as poses do morcego ósseo da imagem original."""
+
+    path = (
+        Path(__file__).resolve().parent
+        / "assets"
+        / "images"
+        / "inimigos_fase3_atlas.png"
+    )
+
+    sheet = pygame.image.load(str(path)).convert_alpha()
+
+    # Recortes individuais da primeira linha de morcegos.
+    # Evita dividir a imagem inteira em uma grade.
+    frame_rects = [
+        (0, 670, 275, 180),
+        (280, 670, 275, 180),
+        (560, 670, 285, 180),
+        (850, 670, 275, 180),
+    ]
+
+    frames = []
+
+    for rect in frame_rects:
+
+        frame = sheet.subsurface(rect).copy()
+
+        bounds = frame.get_bounding_rect(min_alpha=10)
+
+        if bounds.width == 0 or bounds.height == 0:
+            raise ValueError(f"Recorte vazio: {rect}")
+
+        frame = frame.subsurface(bounds).copy()
+
+        scale = min(
+            125 / frame.get_width(),
+            88 / frame.get_height()
+        )
+
+        width = max(1, round(frame.get_width() * scale))
+        height = max(1, round(frame.get_height() * scale))
+
+        frame = pygame.transform.scale(
+            frame,
+            (width, height)
+        )
+
+        canvas = pygame.Surface(
+            (132, 96),
+            pygame.SRCALPHA
+        )
+
+        canvas.blit(
+            frame,
+            frame.get_rect(center=(66, 48))
+        )
+
+        frames.append(canvas)
+
+    # A inteligência do FlyingEnemy utiliza seis índices.
+    # Reutilizamos duas poses para os estados de ataque.
+    frames.append(frames[2].copy())
+    frames.append(frames[3].copy())
+
+    return frames
 
 STEEL_DARK = (20, 27, 36)
 STEEL = (54, 66, 78)
@@ -901,6 +1087,98 @@ class FlyingEnemy(pygame.sprite.Sprite):
                 4
             )
 
+class BoneBatEnemy(FlyingEnemy):
+    """
+    Morcego ósseo da fase 3.
+
+    Mantém as mecânicas do FlyingEnemy:
+    - Patrulha aérea
+    - Detecção do jogador
+    - Investida
+    - Disparo de projéteis
+    """
+
+    def __init__(self, x, y, min_x, max_x):
+        super().__init__(x, y, min_x, max_x)
+        self.frames = load_bone_bat_frames()
+        # Um pouco mais rápido para aumentar o desafio.
+        self.speed = 2.6
+        # Distância de detecção.
+        self.detection_range = 300
+        # Velocidade dos disparos.
+        self.projectile_speed = 5.5
+    def draw(self, screen, camera_x):
+
+        if not self.alive:
+            return
+
+        # Desenha o morcego.
+        frame = self.frames[self.animation_index]
+
+        if self.direction < 0:
+            frame = pygame.transform.flip(
+                frame,
+                True,
+                False
+            )
+
+        draw_rect = frame.get_rect(
+            center=self.rect.center
+        )
+
+        draw_rect.x -= camera_x
+        screen.blit(frame, draw_rect)
+
+        # Desenha os projéteis como fragmentos de ossos.
+        for projectile in self.projectiles:
+            center = pygame.Vector2(
+                projectile["rect"].centerx - camera_x,
+                projectile["rect"].centery
+            )
+            direction = pygame.Vector2(
+                projectile["velocity"]
+            )
+            if direction.length_squared() == 0:
+                direction = pygame.Vector2(1, 0)
+            else:
+                direction = direction.normalize()
+            perpendicular = pygame.Vector2(
+                -direction.y,
+                direction.x
+            )
+
+            # Corpo do fragmento.
+            tip = center + direction * 9
+            back = center - direction * 7
+            points = [
+                tip,
+                center + perpendicular * 4,
+                back,
+                center - perpendicular * 4,
+            ]
+            pygame.draw.polygon(
+                screen,
+                (225, 216, 195),
+                points
+            )
+            pygame.draw.polygon(
+                screen,
+                (95, 86, 85),
+                points,
+                2
+            )
+
+            # Pequeno detalhe vermelho.
+            pygame.draw.circle(
+                screen,
+                (145, 45, 51),
+                (
+                    round(center.x),
+                    round(center.y)
+                ),
+                2
+            )
+
 class HeavyEnemy(pygame.sprite.Sprite):
     """
     Robô Roadie.
@@ -973,7 +1251,7 @@ class HeavyEnemy(pygame.sprite.Sprite):
 
         self.frames = load_enemy_frames(
             "robo_roadie_atlas.png",
-            (128, 128)
+            (192, 192)
         )
 
     # ATUALIZAÇÃO
@@ -1196,3 +1474,127 @@ class HeavyEnemy(pygame.sprite.Sprite):
 
         if self.recovery_timer <= 0:
             self.state = "patrol"
+
+class CloudEnemy(FlyingEnemy):
+    """
+    Nuvem elétrica da fase 1.
+
+    Mecânicas:
+    - Patrulha aérea
+    - Detecção do jogador
+    - Investida
+    - Disparo elétrico
+    - Animação de derrota
+    """
+
+    def __init__(self, x, y, min_x, max_x):
+        super().__init__(x, y, min_x, max_x)
+
+        self.frames = load_cloud_frames()
+
+        self.lightning_sprite, self.death_frames = load_cloud_effects()
+
+        # Movimento da nuvem.
+        self.speed = 1.8
+
+        # A nuvem detecta o jogador a uma distância maior.
+        self.detection_range = 320
+
+        # Os relâmpagos são mais rápidos.
+        self.projectile_speed = 6.5
+
+        # Animação de derrota.
+        self.death_timer = 0
+        self.death_duration = 32
+
+    def take_hit(self):
+        """Recebe dano e inicia a animação de desaparecimento."""
+
+        if not self.alive:
+            return
+
+        super().take_hit()
+
+        if not self.alive:
+            self.death_timer = self.death_duration
+
+    def update(self, player=None):
+        """Atualiza o comportamento ou a animação de derrota."""
+
+        if not self.alive:
+
+            if self.death_timer > 0:
+                self.death_timer -= 1
+
+            return
+
+        super().update(player)
+
+    def draw(self, screen, camera_x):
+        """Desenha a nuvem, os efeitos e os relâmpagos."""
+
+        # Animação de desaparecimento.
+        if not self.alive:
+
+            if self.death_timer <= 0:
+                return
+
+            progress = 1 - (
+                self.death_timer / self.death_duration
+            )
+
+            index = min(
+                int(progress * len(self.death_frames)),
+                len(self.death_frames) - 1
+            )
+
+            frame = self.death_frames[index]
+
+            rect = frame.get_rect(
+                center=self.rect.center
+            )
+
+            rect.x -= camera_x
+
+            screen.blit(frame, rect)
+
+            return
+
+        # Animação normal.
+        frame = self.frames[self.animation_index]
+
+        if self.direction < 0:
+            frame = pygame.transform.flip(
+                frame,
+                True,
+                False
+            )
+
+        draw_rect = frame.get_rect(
+            center=self.rect.center
+        )
+
+        draw_rect.x -= camera_x
+
+        screen.blit(frame, draw_rect)
+
+        # Desenha os disparos elétricos.
+        for projectile in self.projectiles:
+
+            lightning = self.lightning_sprite
+
+            # O disparo acompanha a direção horizontal.
+            if projectile["velocity"].x < 0:
+                lightning = pygame.transform.flip(
+                    lightning,
+                    True,
+                    False
+                )
+
+            rect = lightning.get_rect(
+                center=projectile["rect"].center
+            )
+
+            rect.x -= camera_x
+
+            screen.blit(lightning, rect)
