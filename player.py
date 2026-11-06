@@ -23,8 +23,47 @@ PHASE2_SPRITESHEET_PATH = (
     / "images"
     / "metal_vocalist_phase2_spritesheet.png"
 )
+PHASE1_SPRITESHEET_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "metal_vocalist_phase1_spritesheet.png"
+)
 SPRITE_GRID = 4
 FRAME_CANVAS_SIZE = (110, 108)
+
+# Recortes do spritesheet do personagem da FASE 1.
+# Cada tupla representa (x, y, largura, altura).
+
+PHASE1_FRAME_RECTS = (
+    # 0 - Parado
+    (55, 19, 140, 335),
+
+    # 1 a 7 - Caminhando
+    (392, 19, 155, 335),
+    (554, 19, 122, 335),
+    (702, 19, 166, 335),
+    (900, 19, 148, 335),
+    (1048, 19, 145, 335),
+    (1193, 19, 151, 335),
+    (1346, 19, 165, 335),
+
+    # 8 e 9 - Pulando
+    (1083, 360, 196, 340),
+    (1299, 360, 187, 340),
+
+    # 10 e 11 - Caindo
+    (1083, 360, 196, 340),
+    (1299, 360, 187, 340),
+
+    # 12 a 14 - Atacando
+    (29, 360, 230, 340),
+    (264, 360, 271, 340),
+    (753, 360, 250, 340),
+
+    # 15 - Recebendo dano
+    (207, 700, 190, 290),
+)
 
 # A folha da FASE 3 tem poses com espaçamento irregular. As caixas abaixo
 # isolam cada personagem sem capturar partes da pose vizinha.
@@ -121,6 +160,13 @@ def load_character_frames_from_rects(sheet_path, frame_rects):
 
     return frames
 
+def load_phase1_character_frames():
+    """Carrega as animações do vocalista da fase 1."""
+
+    return load_character_frames_from_rects(
+        PHASE1_SPRITESHEET_PATH,
+        PHASE1_FRAME_RECTS,
+    )
 
 def load_phase2_character_frames():
     """Carrega as poses do vocalista exclusivo da FASE 2."""
@@ -164,6 +210,15 @@ class Player(pygame.sprite.Sprite):
         "hurt": (15,),
     }
 
+    PHASE1_ANIMATIONS = {
+        "idle": (0,),
+        "walk": (1, 2, 3, 4, 5, 6, 7),
+        "jump": (8, 9),
+        "fall": (10, 11),
+        "attack": (12, 13, 14),
+        "hurt": (15,),
+    }
+
     PHASE3_ANIMATIONS = {
         "idle": (0,),
         "walk": (1, 2, 3, 7),
@@ -195,12 +250,19 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
 
         self.phase_number = phase_number
-        if phase_number == 2:
+
+        if phase_number == 1:
+            self.frames = load_phase1_character_frames()
+            self.animations = self.PHASE1_ANIMATIONS
+
+        elif phase_number == 2:
             self.frames = load_phase2_character_frames()
             self.animations = self.PHASE2_ANIMATIONS
+
         elif phase_number == 3:
             self.frames = load_phase3_character_frames()
             self.animations = self.PHASE3_ANIMATIONS
+
         else:
             self.frames = load_character_frames()
             self.animations = self.ANIMATIONS

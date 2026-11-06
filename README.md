@@ -34,7 +34,7 @@ No terminal:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python3 -m pip install pygame
+python3 -m pip install -r requirements.txt
 ```
 
 No Windows:
@@ -42,7 +42,7 @@ No Windows:
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
-python -m pip install pygame
+python -m pip install -r requirements.txt
 ```
 
 ## Executar

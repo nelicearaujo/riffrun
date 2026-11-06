@@ -257,8 +257,8 @@ A integração ocorre no laço principal: `main.py` fornece as plataformas ao jo
 | Item | Estado atual | Evidência |
 |---|---|---|
 | Protótipo jogável de plataforma | Implementado | `main.py`, `player.py`, `level.py` |
-| Fase 1 heavy metal | Implementada | `Level.build_level` e `metal_storm_stage.png` |
-| Fase 2 com tema de estrada/AC/DC | Implementada parcialmente/funcional no código | `Level.build_highway_level` e `visualFase2.jpeg` |
+| Fase 1 heavy metal | Implementada | `Level.build_level` e `visualFase1.png` |
+| Fase 2 com tema de estrada/AC/DC | Implementada parcialmente/funcional no código | `Level.build_highway_level` e `visualFase2.png` |
 | Mapa de campanha com três nós | Implementado | `draw_map_menu` em `main.py` |
 | Desbloqueio local | Implementado | `progress.json`, `load_unlocked_phases` e `save_unlocked_phases` |
 | Fase 3 com conteúdo próprio | Pendente | O nível ainda usa o fluxo padrão da Fase 1 |

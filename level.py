@@ -37,22 +37,29 @@ class Level:
 
         for start, end in ground_segments:
             self.platforms.append(
-                Platform(start, GROUND_Y, end - start, HEIGHT - GROUND_Y, "ground")
+                Platform(
+                    start,
+                    GROUND_Y,
+                    end - start,
+                    HEIGHT - GROUND_Y,
+                    "ground",
+                    "metal"
+                )
             )
 
         # Plataformas suspensas como equipamentos e estruturas de palco.
         floating = [
-            (420, 520, 170, 30, "amp"),
-            (670, 450, 150, 30, "beam"),
-            (1120, 520, 180, 30, "case"),
-            (1390, 430, 170, 48, "brick"),
-            (1920, 520, 190, 30, "brick"),
-            (2190, 440, 170, 30, "beam"),
-            (2420, 360, 160, 32, "pipe"),
-            (2910, 510, 180, 30, "amp"),
-            (3200, 420, 170, 54, "case"),
-            (3880, 490, 160, 28, "brick"),
-            (4740, 490, 160, 58, "amp"),
+            (420, 520, 170, 30, "metal_platform2"),
+            (670, 450, 150, 30, "metal_platform"),
+            (1120, 520, 180, 30, "metal_bottom"),
+            (1390, 430, 170, 48, "metal_platform2"),
+            (1920, 520, 190, 30, "metal_platform"),
+            (2190, 440, 170, 30, "metal_platform2"),
+            (2420, 360, 160, 32, "metal_small"),
+            (2910, 510, 180, 30, "metal_platform"),
+            (3200, 420, 170, 54, "metal_bottom"),
+            (3880, 490, 160, 28, "metal_platform"),
+            (4740, 490, 160, 58, "metal_platform2"),
         ]
 
         for x, y, w, h, style in floating:

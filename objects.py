@@ -65,13 +65,13 @@ PHASE3_PLATFORM_ATLAS_PATH = (
 )
 
 PHASE3_ATLAS_RECTS = {
-    "ground": (20, 94, 2005, 195),
-    "grave_platform": (40, 374, 465, 122),
-    "grave_moss": (550, 373, 405, 140),
-    "grave_arch": (980, 365, 590, 230),
-    "grave_skull": (1595, 385, 185, 215),
-    "grave_crate": (1785, 385, 190, 215),
-    "grave_pillar": (1968, 360, 160, 240),
+    "ground": (22, 101, 2130, 203),
+    "grave_platform": (47, 396, 500, 119),
+    "grave_moss": (577, 396, 432, 120),
+    "grave_arch": (1058, 395, 490, 246),
+    "grave_skull": (1601, 427, 176, 181),
+    "grave_crate": (1790, 426, 178, 180),
+    "grave_pillar": (1977, 396, 152, 244),
 }
 
 PHASE2_PLATFORM_ATLAS_PATH = (
@@ -82,21 +82,41 @@ PHASE2_PLATFORM_ATLAS_PATH = (
 )
 
 PHASE2_ATLAS_RECTS = {
-    "highway_ground": (18, 87, 2012, 180),
-    "highway_platform": (17, 332, 452, 142),
-    "highway_platform2": (516, 332, 445, 146),
-    "highway_bottom": (17, 500, 452, 145),
-    "highway_hazard": (516, 500, 455, 145),
-    "highway_arch": (1000, 332, 455, 280),
-    "highway_lightning": (1484, 409, 128, 168),
-    "highway_bars": (1617, 409, 150, 168),
-    "highway_crate": (1772, 409, 140, 168),
-    "highway_pillar": (1940, 378, 100, 205),
+    "highway_ground": (16, 90, 2140, 190),
+    "highway_platform": (17, 349, 480, 153),
+    "highway_platform2": (544, 347, 480, 156),
+    "highway_bottom": (18, 522, 480, 136),
+    "highway_hazard": (543, 522, 480, 118),
+    "highway_arch": (1053, 347, 494, 301),
+    "highway_lightning": (1570, 431, 150, 165),
+    "highway_bars": (1724, 431, 148, 165),
+    "highway_crate": (1880, 431, 148, 165),
+    "highway_pillar": (2042, 396, 114, 215),
+}
+
+PHASE1_PLATFORM_ATLAS_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "fase1_plataforms_atlas.png"
+)
+
+PHASE1_ATLAS_RECTS = {
+    "metal_ground": (22, 85, 2133, 191),
+    "metal_platform": (40, 374, 477, 127),
+    "metal_platform2": (572, 373, 537, 127),
+    "metal_arch": (1150, 373, 474, 259),
+    "metal_bottom": (40, 563, 421, 98),
+    "metal_speaker": (518, 559, 392, 73),
+    "metal_small": (907, 559, 189, 78),
+    "metal_block": (1670, 430, 170, 148),
+    "metal_lightning": (1839, 430, 140, 148),
+    "metal_hazard": (2010, 447, 141, 90),
 }
 
 _phase3_platform_atlas = None
 _phase2_platform_atlas = None
-
+_phase1_platform_atlas = None
 
 def load_phase3_platform_atlas():
     global _phase3_platform_atlas
@@ -119,6 +139,17 @@ def load_phase2_platform_atlas():
             _phase2_platform_atlas = _phase2_platform_atlas.convert_alpha()
     return _phase2_platform_atlas
 
+def load_phase1_platform_atlas():
+    global _phase1_platform_atlas
+    if _phase1_platform_atlas is None:
+        _phase1_platform_atlas = pygame.image.load(
+            str(PHASE1_PLATFORM_ATLAS_PATH)
+        )
+        if pygame.display.get_surface():
+            _phase1_platform_atlas = (
+                _phase1_platform_atlas.convert_alpha()
+            )
+    return _phase1_platform_atlas
 
 def draw_rivet(screen, x, y):
     pygame.draw.circle(screen, STEEL_LIGHT, (x, y), 3)
@@ -134,20 +165,60 @@ class Platform(pygame.sprite.Sprite):
 
     def draw(self, screen, camera_x):
         r = self.rect.move(-camera_x, 0)
-        if r.right < -80 or r.left > screen.get_width() + 80:
+        # Não desenha objetos fora da câmera
+        if (
+                r.right < -80
+                or r.left > screen.get_width() + 80
+        ):
             return
-
+        # CHÃO
         if self.kind == "ground":
-            if self.style == "grave":
-                self.draw_grave_ground(screen, r)
+
+            if self.style == "metal":
+
+                self.draw_phase1_atlas_sprite(
+                    screen,
+                    r,
+                    "metal_ground"
+                )
+            elif self.style == "grave":
+                self.draw_grave_ground(
+                    screen,
+                    r
+                )
             elif self.style == "highway":
-                self.draw_phase2_atlas_sprite(screen, r, "highway_ground")
+                self.draw_phase2_atlas_sprite(
+                    screen,
+                    r,
+                    "highway_ground"
+                )
             else:
-                self.draw_ground(screen, r)
+                self.draw_ground(
+                    screen,
+                    r
+                )
+        # PLATAFORMAS DA FASE 1
+        elif self.style.startswith("metal_"):
+
+            self.draw_phase1_atlas_sprite(
+                screen,
+                r,
+                self.style
+            )
+        # PLATAFORMAS DA FASE 3
         elif self.style.startswith("grave"):
-            self.draw_grave_obstacle(screen, r)
+            self.draw_grave_obstacle(
+                screen,
+                r
+            )
+        # PLATAFORMAS DA FASE 2
         elif self.style.startswith("highway"):
-            self.draw_phase2_atlas_sprite(screen, r, self.style)
+            self.draw_phase2_atlas_sprite(
+                screen,
+                r,
+                self.style
+            )
+        # PLATAFORMAS ANTIGAS
         elif self.style == "brick":
             self.draw_bricks(screen, r)
         elif self.style == "case":
@@ -165,27 +236,96 @@ class Platform(pygame.sprite.Sprite):
     def draw_grave_obstacle(self, screen, r):
         self.draw_phase3_atlas_sprite(screen, r, self.style)
 
+    def draw_atlas_sprite(self, screen, r, atlas, source_rect):
+        # Recorta o elemento do atlas.
+        source = atlas.subsurface(source_rect).copy()
+        # Identifica a região realmente visível.
+        bounds = source.get_bounding_rect(min_alpha=20)
+
+        if bounds.width == 0 or bounds.height == 0:
+            return
+        # Remove as margens transparentes.
+        source = source.subsurface(bounds).copy()
+        # Ajusta a imagem ao retângulo de colisão.
+        sprite = pygame.transform.scale(
+            source,
+            (r.width, r.height)
+        )
+        # Imagem e colisão começam na mesma posição.
+        screen.blit(sprite, r.topleft)
+
     def draw_phase3_atlas_sprite(self, screen, r, sprite_name):
         atlas = load_phase3_platform_atlas()
         source_rect = PHASE3_ATLAS_RECTS[sprite_name]
-        source = atlas.subsurface(source_rect)
-        if sprite_name == "ground":
-            bounds = source.get_bounding_rect(min_alpha=10)
-            source = source.subsurface(bounds)
-        scaled_height = max(1, round(source.get_height() * r.w / source.get_width()))
-        sprite = pygame.transform.smoothscale(source, (r.w, scaled_height))
-        destination = sprite.get_rect(midtop=(r.centerx, r.top))
-        screen.blit(sprite, destination)
+        self.draw_atlas_sprite(
+            screen,
+            r,
+            atlas,
+            source_rect
+        )
 
     def draw_phase2_atlas_sprite(self, screen, r, sprite_name):
         atlas = load_phase2_platform_atlas()
-        source = atlas.subsurface(PHASE2_ATLAS_RECTS[sprite_name])
-        if sprite_name == "highway_ground":
-            bounds = source.get_bounding_rect(min_alpha=10)
-            source = source.subsurface(bounds)
-        scaled_height = max(1, round(source.get_height() * r.w / source.get_width()))
-        sprite = pygame.transform.smoothscale(source, (r.w, scaled_height))
-        screen.blit(sprite, sprite.get_rect(midtop=r.midtop))
+        source_rect = PHASE2_ATLAS_RECTS[sprite_name]
+        self.draw_atlas_sprite(
+            screen,
+            r,
+            atlas,
+            source_rect
+        )
+
+    def draw_phase1_atlas_sprite(
+            self,
+            screen,
+            r,
+            sprite_name
+    ):
+        atlas = load_phase1_platform_atlas()
+        source_rect = PHASE1_ATLAS_RECTS[sprite_name]
+
+        # Recorta o elemento original
+        source = atlas.subsurface(
+            source_rect
+        ).copy()
+
+        # Remove as margens transparentes
+        bounds = source.get_bounding_rect(
+            min_alpha=20
+        )
+        if bounds.width == 0 or bounds.height == 0:
+            return
+        source = source.subsurface(
+            bounds
+        ).copy()
+
+        # Mantém a proporção original do sprite
+        original_width = source.get_width()
+        original_height = source.get_height()
+        scale = r.width / original_width
+        scaled_height = max(
+            1,
+            round(original_height * scale)
+        )
+
+        # O chão acompanha a altura da colisão
+        if sprite_name == "metal_ground":
+            scaled_height = r.height
+        sprite = pygame.transform.scale(
+            source,
+            (
+                r.width,
+                scaled_height
+            )
+        )
+
+        # A superfície superior coincide com a colisão
+        destination = sprite.get_rect(
+            midtop=r.midtop
+        )
+        screen.blit(
+            sprite,
+            destination
+        )
 
     def draw_grave_arch(self, screen, r):
         pygame.draw.rect(screen, GRAVE_STONE_DARK, r)

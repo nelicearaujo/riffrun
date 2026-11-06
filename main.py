@@ -35,7 +35,7 @@ menu_number_font = pygame.font.SysFont("arialblack", 64, bold=True)
 BASE_DIR = Path(__file__).resolve().parent
 
 BACKGROUND_PATH = (
-    BASE_DIR / "assets" / "images" / "metal_storm_stage.png"
+    BASE_DIR / "assets" / "images" / "visualFase1.png"
 )
 
 PHASE2_BACKGROUND_PATH = (
