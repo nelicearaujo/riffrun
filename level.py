@@ -1,8 +1,14 @@
+import pygame
+from scoring import RunScore
+from undead import NecromancerEnemy, ZombieEnemy
+
 from settings import *
+from hazards import SpikeStrip, FireJet, draw_lava
 from objects import (
     Platform,
     Guitar,
     Enemy,
+    SpiderEnemy,
     FlyingEnemy,
     CloudEnemy,
     BoneBatEnemy,
@@ -12,16 +18,21 @@ from objects import (
 class Level:
     def __init__(self, phase_number=1):
         self.phase_number = phase_number
+        self.run_score = RunScore()
         self.platforms = []
         self.guitars = []
         self.enemies = []
-        self.goal = GoalInstrument(4960, 520)
+        self.hazards = []
+        self.hazard_tick = 0
+        self.checkpoint = (120, 500)
+        self.rest_platforms = []
+        self.goal = GoalInstrument(4960, GROUND_Y - 90)
 
         self.build_level()
 
     def build_level(self):
         if self.phase_number == 2:
-            self.build_highway_level()
+            self.build_lava_level()
             return
         if self.phase_number == 3:
             self.build_graveyard_level()
@@ -67,12 +78,11 @@ class Level:
         for x, y, w, h, style in floating:
             self.platforms.append(Platform(x, y, w, h, "platform", style))
 
-        # Mini guitarras
+        # Dez baixos distribuídos entre o chão e as plataformas.
         guitar_positions = [
             (470, 470), (720, 400), (1165, 470), (1440, 380),
-            (1970, 470), (2240, 390), (2470, 310), (2960, 460),
-            (3250, 370), (3950, 440),(4780, 440),
-            (600, 590),(1050, 590), (2050, 590), (3350, 590)
+            (1970, 470), (2470, 310), (2960, 460), (3250, 370),
+            (3950, 440), (4780, 440),
         ]
 
         for x, y in guitar_positions:
@@ -84,12 +94,9 @@ class Level:
 
         self.enemies = [
             # Inimigos terrestres
-            Enemy(720, 594, 600, 840),
-            Enemy(1240, 594, 1080, 1580),
-            Enemy(2050, 594, 1880, 2500),
-            Enemy(3100, 594, 2860, 3460),
-            Enemy(4010, 594, 3760, 4430),
-            Enemy(4820, 594, 4700, 5120),
+            *[SpiderEnemy(x, GROUND_Y, start, end)
+              for x, (start, end) in zip(
+                  (720, 1240, 2050, 3100, 4010, 4820), ground_segments)],
 
             # Nuvens de relâmpagos da fase 1
             CloudEnemy(
@@ -116,6 +123,7 @@ class Level:
         ]
 
     def build_graveyard_level(self):
+        self.goal = GoalInstrument(5100, GROUND_Y - 90)
         ground_segments = [
             (0, 850), (1000, 1650), (1800, 2600),
             (2780, 3550), (3700, 4500), (4660, 5200),
@@ -128,35 +136,30 @@ class Level:
         floating = [
             (420, 510, 170, 45, "grave_platform"),
             (670, 450, 150, 52, "grave_moss"),
-            (1120, 450, 96, 109, "grave_crate"),
-            (1390, 455, 90, 105, "grave_skull"),
+            (1120, 479, 80, 81, "grave_crate"),
+            (1390, 478, 80, 82, "grave_skull"),
             (1920, 490, 190, 66, "grave_moss"),
             (2190, 440, 170, 44, "grave_platform"),
-            (2420, 400, 220, 86, "grave_arch"),
+            (2390, 400, 160, 86, "grave_arch"),
             (2910, 510, 180, 47, "grave_platform"),
-            (3200, 445, 95, 110, "grave_skull"),
+            (3250, 478, 80, 82, "grave_skull"),
             (3880, 490, 160, 55, "grave_moss"),
-            (4740, 470, 220, 86, "grave_arch"),
+            (4820, 470, 220, 86, "grave_arch"),
         ]
         for x, y, width, height, style in floating:
             self.platforms.append(Platform(x, y, width, height, "platform", style))
 
         guitar_positions = [
-            (470, 450), (720, 400), (1165, 390), (1440, 380),
-            (1970, 425), (2240, 390), (2470, 310), (2960, 460),
-            (3250, 370), (3950, 440), (4780, 415),
-            (600, 590), (1050, 590), (2050, 590), (3350, 590),
+            (470, 464), (720, 404), (1146, 433), (1416, 432),
+            (1970, 444), (2470, 354), (2960, 464), (3276, 432),
+            (3950, 444), (4860, 424),
         ]
         for x, y in guitar_positions:
-            self.guitars.append(Guitar(x, y))
+            self.guitars.append(Guitar(x, y, self.phase_number))
 
         self.enemies = [
-            Enemy(720, 594, 600, 840),
-            Enemy(1240, 594, 1080, 1580),
-            Enemy(2050, 594, 1880, 2500),
-            Enemy(3100, 594, 2860, 3460),
-            Enemy(4010, 594, 3760, 4430),
-            Enemy(4820, 594, 4700, 5120),
+            *[ZombieEnemy(x, start, end) for x, (start, end) in zip(
+                (720, 1240, 2050, 3100, 4010, 4820), ground_segments)],
             # Morcegos ósseos da fase 3
             BoneBatEnemy(
                 1450, 480,
@@ -165,60 +168,102 @@ class Level:
             BoneBatEnemy(
                 3300, 490,
                 3150, 3500
-            ),            HeavyEnemy(4270, 548, 4220, 4410, 4050, 4500),
+            ),
+            NecromancerEnemy(2300, 1800, 2600),
+            NecromancerEnemy(4270, 3700, 4500),
         ]
 
-    def build_highway_level(self):
-        ground_segments = [
-            (0, 760), (900, 1510), (1650, 2350),
-            (2490, 3200), (3340, 4100), (4230, 5200),
+    def build_lava_level(self):
+        # Saltos sobem no maximo 90 px; os vãos ficam abaixo de 170 px.
+        route = [
+            (0, 590, 340), (450, 520, 180), (750, 450, 150),
+            (1030, 510, 260), (1310, 430, 150), (1580, 510, 320),
+            (2030, 440, 150), (2320, 370, 140), (2590, 460, 260),
+            (2880, 390, 150), (3160, 490, 320), (3620, 410, 150),
+            (3910, 470, 260), (4200, 390, 140), (4480, 460, 260),
+            (4780, 550, 420),
         ]
-        for start, end in ground_segments:
-            self.platforms.append(
-                Platform(start, GROUND_Y, end - start, HEIGHT - GROUND_Y, "ground", "highway")
-            )
+        for index, (x, y, width) in enumerate(route):
+            platform = Platform(x, y, width, 30, "platform", "highway_platform2")
+            self.platforms.append(platform)
+            if index in (0, 5, 10, 15):
+                self.rest_platforms.append(platform)
+            if index in (1, 2, 4, 5, 7, 9, 10, 11, 13, 15):
+                self.guitars.append(Guitar(x + width // 2 - 14, y - 65, self.phase_number))
 
-        floating = [
-            (280, 500, 170, 53, "highway_platform"), (560, 430, 180, 59, "highway_platform2"),
-            (810, 510, 120, 38, "highway_bottom"), (1010, 380, 190, 117, "highway_arch"),
-            (1260, 390, 160, 50, "highway_platform"), (1510, 500, 130, 41, "highway_hazard"),
-            (1780, 430, 200, 66, "highway_platform2"), (2100, 350, 160, 99, "highway_arch"),
-            (2350, 450, 70, 92, "highway_lightning"), (2620, 430, 180, 59, "highway_platform2"),
-            (2900, 350, 160, 99, "highway_arch"), (3190, 450, 70, 78, "highway_bars"),
-            (3470, 430, 180, 59, "highway_platform2"), (3750, 340, 170, 105, "highway_arch"),
-            (4070, 450, 70, 84, "highway_crate"), (4330, 420, 180, 59, "highway_platform2"),
-            (4640, 340, 160, 99, "highway_arch"), (4900, 430, 60, 123, "highway_pillar"),
+        self.hazards = [
+            SpikeStrip(1130, 510), SpikeStrip(2690, 460),
+            SpikeStrip(4010, 470), SpikeStrip(4580, 460),
+            FireJet(695, 260, 0), FireJet(1960, 300, 75),
+            FireJet(2820, 330, 140), FireJet(3540, 300, 35),
+            FireJet(4710, 270, 100),
         ]
-        for x, y, width, height, style in floating:
-            self.platforms.append(Platform(x, y, width, height, "platform", style))
+        self.goal = GoalInstrument(5050, 550 - 90)
 
-        guitar_positions = [
-            (335, 450), (620, 380), (855, 460), (1060, 330), (1300, 340),
-            (1550, 450), (1820, 350), (2140, 300), (2670, 380), (2940, 300),
-            (3510, 360), (3790, 290), (4380, 370), (4690, 290), (4950, 380),
-        ]
-        for x, y in guitar_positions:
-            self.guitars.append(Guitar(x, y))
+    def handle_hazards(self, player):
+        """Retorna o tipo de dano para o controlador tocar o efeito adequado."""
+        if self.phase_number != 2:
+            return None
+        for platform in self.rest_platforms:
+            if (player.on_ground and player.rect.bottom == platform.rect.top
+                    and platform.rect.left <= player.rect.centerx <= platform.rect.right):
+                self.checkpoint = (platform.rect.left + 65,
+                                   platform.rect.top - player.rect.height)
 
-        self.enemies = [
-            Enemy(580, 594, 460, 720), Enemy(1200, 594, 1020, 1430),
-            Enemy(1880, 594, 1720, 2260), Enemy(2750, 594, 2580, 3100),
-            Enemy(3600, 594, 3420, 4000), Enemy(4450, 594, 4300, 4780),
-        ]
+        if player.rect.bottom >= GROUND_Y:
+            previous_health = player.health
+            player.take_damage()
+            player.pos.update(*self.checkpoint)
+            player.rect.topleft = self.checkpoint
+            player.vel.update(0, 0)
+            player.on_ground = False
+            return "fall" if player.health < previous_health else None
+
+        if any(hazard.hits(player.rect) for hazard in self.hazards):
+            previous_health = player.health
+            player.take_damage()
+            if player.health < previous_health:
+                return "hurt"
+        return None
 
     def update(self, player=None):
-        for enemy in self.enemies:
+        self.hazard_tick += 1
+        for hazard in self.hazards:
+            if isinstance(hazard, FireJet):
+                hazard.update(self.hazard_tick)
+        for enemy in self.enemies[:]:
             if isinstance(
                     enemy,
-                    (FlyingEnemy, HeavyEnemy)
+                    (FlyingEnemy, HeavyEnemy, NecromancerEnemy, ZombieEnemy)
             ):
                 enemy.update(player)
             else:
                 enemy.update()
+            if isinstance(enemy, NecromancerEnemy):
+                self.enemies.extend(enemy.pending_summons)
+                enemy.pending_summons.clear()
+        # Evita acumular corpos de invocações durante partidas longas.
+        self.enemies = [e for e in self.enemies if not (
+            isinstance(e, ZombieEnemy) and not e.alive and getattr(e, "death_timer", 0) == 0)]
 
     def draw(self, screen, camera_x):
+        if self.phase_number == 2:
+            draw_lava(screen, camera_x, self.hazard_tick)
         for platform in self.platforms:
             platform.draw(screen, camera_x)
+
+        for hazard in self.hazards:
+            hazard.draw(screen, camera_x)
+
+        if self.phase_number == 2:
+            for platform in self.rest_platforms[1:-1]:
+                x = platform.rect.left + 65 - camera_x
+                y = platform.rect.top
+                active = self.checkpoint[0] == platform.rect.left + 65
+                color = (110, 235, 170) if active else (230, 200, 100)
+                pygame.draw.line(screen, color, (x, y), (x, y - 48), 3)
+                pygame.draw.polygon(screen, color,
+                                    [(x, y - 48), (x + 25, y - 39), (x, y - 30)])
 
         for guitar in self.guitars:
             guitar.draw(screen, camera_x)

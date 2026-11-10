@@ -1,0 +1,9 @@
+# Cache e arquivos compilados do Python
+__pycache__/
+*.py[cod]
+
+# Ambiente virtual local
+.venv/
+
+# Configuracoes locais do PyCharm
+.idea/

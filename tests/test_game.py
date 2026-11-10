@@ -79,6 +79,26 @@ def test_flying_enemy_moves_and_takes_damage(self):
 
 class LevelTests(unittest.TestCase):
 
+    def test_final_microphones_are_supported_and_clear_of_platforms(self):
+        for phase in (1, 2, 3):
+            level = Level(phase)
+            goal = level.goal
+            self.assertEqual(goal.rect.size, goal._image.get_size())
+            self.assertTrue(any(p.rect.top == goal.rect.bottom
+                                and p.rect.left <= goal.rect.centerx <= p.rect.right
+                                for p in level.platforms))
+            self.assertFalse(any(goal.rect.colliderect(p.rect) for p in level.platforms))
+            player = Player(goal.rect.x, goal.rect.bottom - 70, phase)
+            self.assertTrue(player.rect.colliderect(goal.rect))
+
+    def test_all_phases_have_ten_collectibles_with_their_phase_identity(self):
+        for phase in (1, 2, 3):
+            level = Level(phase)
+            self.assertEqual(len(level.guitars), 10)
+            self.assertTrue(all(item.phase_number == phase for item in level.guitars))
+            for item in level.guitars:
+                self.assertFalse(any(hazard.hits(item.rect) for hazard in level.hazards))
+
     # NOVO TESTE 1
     # Verifica se existe espaço suficiente para
     # o personagem caminhar abaixo das plataformas.
@@ -144,11 +164,11 @@ class LevelTests(unittest.TestCase):
     def test_phase_one_has_expected_collectibles_enemies_and_goal(self):
         level = Level(1)
 
-        self.assertEqual(len(level.guitars), 15)
+        self.assertEqual(len(level.guitars), 10)
         self.assertEqual(len(level.enemies), 9)
         self.assertEqual(
-            level.goal.rect.topleft,
-            (4960, 520)
+            level.goal.rect.midbottom,
+            (4995, 640)
         )
 
         self.assertTrue(
@@ -162,8 +182,9 @@ class LevelTests(unittest.TestCase):
         phase_one = Level(1)
         phase_two = Level(2)
 
-        self.assertEqual(len(phase_two.guitars), 15)
-        self.assertEqual(len(phase_two.enemies), 6)
+        self.assertEqual(len(phase_two.guitars), 10)
+        self.assertEqual(len(phase_two.enemies), 0)
+        self.assertEqual(len(phase_two.hazards), 9)
 
         self.assertNotEqual(
             [
@@ -190,6 +211,15 @@ class LevelTests(unittest.TestCase):
 
 
 class PlayerTests(unittest.TestCase):
+
+    def test_player_cannot_walk_past_right_edge_of_level(self):
+        from settings import LEVEL_WIDTH
+        player = Player(LEVEL_WIDTH - 10, 500)
+        player.handle_input = lambda: None
+        player.vel.x = 5
+        player.update([])
+        self.assertEqual(player.rect.right, LEVEL_WIDTH)
+        self.assertEqual(player.pos.x, player.rect.x)
 
     def setUp(self):
         self.player = Player(120, 500)

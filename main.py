@@ -7,7 +7,10 @@ from pathlib import Path
 import pygame
 
 from audio import AudioManager
+from hud import Hud
+from victory import VictoryScreen
 from level import Level
+from boss import BossArena
 from player import Player
 from settings import *
 
@@ -109,6 +112,9 @@ def load_unlocked_phases():
         progress = json.loads(
             PROGRESS_PATH.read_text(encoding="utf-8")
         )
+
+        if not isinstance(progress, dict):
+            return 1
 
         return max(
             1,
@@ -214,65 +220,13 @@ def draw_background(screen, camera_x, phase_number=1):
 
 # HUD
 
+hud = Hud()
+victory_screen = VictoryScreen()
+defeat_screen = VictoryScreen(defeated=True)
+
+
 def draw_hud(screen, player, phase_number):
-
-    shadow = pygame.Rect(20, 20, 326, 92)
-    panel = pygame.Rect(16, 16, 326, 92)
-
-    pygame.draw.rect(
-        screen, (3, 6, 12), shadow, border_radius=5
-    )
-
-    pygame.draw.rect(
-        screen, (18, 24, 34), panel, border_radius=5
-    )
-
-    pygame.draw.rect(
-        screen, (91, 111, 128), panel, 3, border_radius=5
-    )
-
-    accent = PHASES[phase_number - 1]["accent"]
-
-    pygame.draw.line(
-        screen,
-        accent,
-        (28, 57),
-        (330, 57),
-        2
-    )
-
-    for x in (27, 331):
-        for y in (27, 97):
-
-            pygame.draw.circle(
-                screen, (154, 169, 177), (x, y), 3
-            )
-
-            pygame.draw.circle(
-                screen, (44, 52, 61), (x, y), 1
-            )
-
-    life_text = font.render(
-        f"ENERGIA  {player.health}",
-        True,
-        (224, 233, 238)
-    )
-
-    score_text = font.render(
-        f"RIFFS  {player.score:02d}/15",
-        True,
-        (231, 169, 62)
-    )
-
-    phase_text = small_font.render(
-        f"FASE {phase_number}",
-        True,
-        accent
-    )
-
-    screen.blit(life_text, (39, 25))
-    screen.blit(phase_text, (251, 29))
-    screen.blit(score_text, (39, 64))
+    hud.draw(screen, player, phase_number)
 
 
 # MENU - FASES
@@ -466,14 +420,21 @@ def draw_home(screen):
 
         if rect.collidepoint(mouse_pos):
 
+            highlight_rect = rect.inflate(-6, -6)
+
             highlight = pygame.Surface(
-                rect.size,
+                highlight_rect.size,
                 pygame.SRCALPHA
             )
 
-            highlight.fill((255, 255, 255, 28))
+            pygame.draw.rect(
+                highlight,
+                (255, 255, 255, 28),
+                highlight.get_rect(),
+                border_radius=18
+            )
 
-            screen.blit(highlight, rect.topleft)
+            screen.blit(highlight, highlight_rect.topleft)
 
             break
 
@@ -488,6 +449,12 @@ def draw_menu(screen, selected_phase, unlocked_phases):
 # REINICIAR FASE
 
 def reset_game(phase_number):
+
+    if phase_number == 4:
+        player = Player(80, GROUND_Y - 70, 4)
+        arena = BossArena(audio.boss_intro_duration_ms())
+        audio.start_boss_intro()
+        return player, arena, False, False
 
     player = Player(120, 500, phase_number)
     level = Level(phase_number)
@@ -514,7 +481,7 @@ enemies_hit_this_attack = set()
 
 while running:
 
-    clock.tick(FPS)
+    frame_ms = clock.tick(FPS)
 
     # EVENTOS
 
@@ -522,6 +489,9 @@ while running:
 
         if event.type == pygame.QUIT:
             running = False
+            continue
+
+        if audio.handle_music_event(event):
             continue
 
         # Controle de áudio disponível em qualquer tela
@@ -553,6 +523,9 @@ while running:
 
                 buttons = home_button_rects()
 
+                if any(rect.collidepoint(event.pos) for rect in buttons.values()):
+                    audio.play_sfx("menu_click")
+
                 if buttons["play"].collidepoint(event.pos):
                     screen_mode = "menu"
 
@@ -563,6 +536,7 @@ while running:
                     screen_mode = "credits"
 
                 elif buttons["quit"].collidepoint(event.pos):
+                    pygame.time.wait(60)
                     running = False
 
             continue
@@ -585,7 +559,13 @@ while running:
 
             if event.type == pygame.KEYDOWN:
 
-                if event.key == pygame.K_ESCAPE:
+                if event.key == pygame.K_b:
+                    phase_number = 4
+                    player, level, victory, game_over = reset_game(phase_number)
+                    enemies_hit_this_attack.clear()
+                    screen_mode = "playing"
+
+                elif event.key == pygame.K_ESCAPE:
                     screen_mode = "home"
 
                 elif event.key in (
@@ -662,6 +642,7 @@ while running:
 
                     if rect.collidepoint(event.pos):
 
+                        audio.play_sfx("menu_click")
                         selected_phase = index
 
                         if index < unlocked_phases:
@@ -708,16 +689,24 @@ while running:
                 elif (
                     victory
                     and event.key in (
-                        pygame.K_m,
                         pygame.K_RETURN,
                         pygame.K_KP_ENTER
                     )
                 ):
 
+                    audio.play_sfx("menu_click")
+                    if phase_number < 4:
+                        phase_number += 1
+                        selected_phase = min(phase_number - 1, len(PHASES) - 1)
+                        player, level, victory, game_over = reset_game(phase_number)
+                        enemies_hit_this_attack.clear()
+                    else:
+                        screen_mode = "menu"
+                        selected_phase = len(PHASES) - 1
+
+                elif victory and event.key == pygame.K_m:
                     screen_mode = "menu"
-                    selected_phase = min(
-                        phase_number, 2
-                    )
+                    selected_phase = min(phase_number, len(PHASES) - 1)
 
             # Mouse: ataque
             elif (
@@ -725,6 +714,7 @@ while running:
                 and event.button == 1
                 and not victory
                 and not game_over
+                and not (phase_number == 4 and level.boss.intro_timer > 0)
             ):
 
                 if player.attack_timer <= 0:
@@ -745,9 +735,18 @@ while running:
 
         # MOVIMENTAÇÃO E PULO
 
+        arena_intro = phase_number == 4 and level.boss.intro_timer > 0
+        if not arena_intro:
+            level.run_score.advance(frame_ms)
+
         was_on_ground = player.on_ground
 
-        player.update(level.platforms)
+        if arena_intro:
+            player.vel.update(0, 0)
+            player.on_ground = True
+            player.update_animation()
+        else:
+            player.update(level.platforms)
 
         if (
             was_on_ground
@@ -760,7 +759,14 @@ while running:
 
         # INIMIGOS
 
-        level.update(player)
+        if phase_number == 4:
+            level.update(player, intro_elapsed_ms=audio.boss_intro_elapsed_ms())
+        else:
+            level.update(player)
+
+        hazard_sound = level.handle_hazards(player)
+        if hazard_sound:
+            audio.play_sfx(hazard_sound)
 
         # COLETÁVEIS
 
@@ -834,6 +840,8 @@ while running:
                     player.take_damage()
 
                     # O projétil desaparece ao atingir
+                    if hasattr(enemy, "on_projectile_hit"):
+                        enemy.on_projectile_hit(projectile)
                     enemy.projectiles.remove(projectile)
 
                     if player.health < previous_health:
@@ -845,7 +853,11 @@ while running:
 
             if (
                 enemy.alive
-                and player.rect.colliderect(enemy.rect)
+                and getattr(enemy, "can_damage", True)
+                and (player.rect.colliderect(enemy.rect)
+                     or (hasattr(enemy, "get_attack_rect")
+                         and enemy.get_attack_rect() is not None
+                         and player.rect.colliderect(enemy.get_attack_rect())))
             ):
 
                 previous_health = player.health
@@ -873,15 +885,18 @@ while running:
         if player.health <= 0:
 
             game_over = True
+            level.run_score.finish(player.score, completed=False)
 
         # VITÓRIA
 
         if (
             not game_over
-            and player.rect.colliderect(level.goal.rect)
+            and ((phase_number == 4 and not level.boss.alive and level.boss.death_timer <= 0)
+                 or (phase_number != 4 and player.rect.colliderect(level.goal.rect)))
         ):
 
             audio.play_sfx("victory")
+            level.run_score.finish(player.score)
 
             victory = True
 
@@ -897,6 +912,9 @@ while running:
                 2
             )
 
+    if screen_mode == "playing" and game_over:
+        player.update_death(level.platforms)
+
     # MÚSICA DE FUNDO
 
     if (
@@ -905,7 +923,20 @@ while running:
         and not game_over
     ):
 
-        audio.set_phase(phase_number)
+        if phase_number == 4:
+            if level.boss.intro_timer == 0:
+                audio.finish_boss_intro()
+            audio.set_phase("boss_intro" if level.boss.intro_timer else 4)
+        else:
+            audio.set_phase(phase_number)
+
+    elif screen_mode == "playing" and victory and phase_number == 4:
+
+        audio.set_phase("ending")
+
+    elif screen_mode in ("home", "menu", "options", "credits"):
+
+        audio.set_phase("menu")
 
     else:
 
@@ -965,11 +996,11 @@ while running:
             min(camera_x, LEVEL_WIDTH - WIDTH)
         )
 
-        draw_background(
-            screen,
-            camera_x,
-            phase_number
-        )
+        if phase_number == 4:
+            camera_x = 0
+            level.draw_background(screen)
+        else:
+            draw_background(screen, camera_x, phase_number)
 
         level.draw(screen, camera_x)
         player.draw(screen, camera_x)
@@ -980,181 +1011,15 @@ while running:
             phase_number
         )
 
-        # TEXTO DE AJUDA
-
-        help_text = small_font.render(
-            "A/D: MOVER  |  ESPAÇO: PULAR  |  "
-            "CLIQUE: ATACAR  |  V: SOM  |  ESC: MENU",
-            True,
-            (218, 226, 231)
-        )
-
-        help_x = (
-            WIDTH - help_text.get_width() - 22
-        )
-
-        help_panel = pygame.Rect(
-            help_x - 13,
-            16,
-            help_text.get_width() + 26,
-            34
-        )
-
-        help_surface = pygame.Surface(
-            help_panel.size,
-            pygame.SRCALPHA
-        )
-
-        help_surface.fill(
-            (7, 12, 20, 165)
-        )
-
-        screen.blit(
-            help_surface,
-            help_panel
-        )
-
-        pygame.draw.line(
-            screen,
-            (225, 157, 48),
-            (help_panel.x, help_panel.bottom),
-            (help_panel.right, help_panel.bottom),
-            2
-        )
-
-        screen.blit(
-            help_text,
-            (help_x, 23)
-        )
-
         # TELA DE VITÓRIA
 
         if victory:
-
-            overlay = pygame.Surface(
-                (WIDTH, HEIGHT),
-                pygame.SRCALPHA
-            )
-
-            overlay.fill((0, 0, 0, 180))
-
-            screen.blit(
-                overlay,
-                (0, 0)
-            )
-
-            title = big_font.render(
-                f"FASE {phase_number} CONCLUÍDA!",
-                True,
-                (230, 169, 60)
-            )
-
-            subtitle = font.render(
-                f"{PHASES[phase_number - 1]['title']}  "
-                f"•  Riffs: {player.score}/15",
-                True,
-                (240, 240, 240)
-            )
-
-            if phase_number < len(PHASES):
-
-                next_text = (
-                    f"Fase {phase_number + 1} liberada!"
-                )
-
-            else:
-
-                next_text = "Todas as fases liberadas!"
-
-            next_line = small_font.render(
-                next_text,
-                True,
-                (111, 219, 188)
-            )
-
-            retry = small_font.render(
-                "R: repetir fase  |  "
-                "ENTER/M: voltar ao início",
-                True,
-                (220, 220, 220)
-            )
-
-            screen.blit(
-                title,
-                (
-                    WIDTH // 2 - title.get_width() // 2,
-                    245
-                )
-            )
-
-            screen.blit(
-                subtitle,
-                (
-                    WIDTH // 2 - subtitle.get_width() // 2,
-                    330
-                )
-            )
-
-            screen.blit(
-                next_line,
-                (
-                    WIDTH // 2 - next_line.get_width() // 2,
-                    375
-                )
-            )
-
-            screen.blit(
-                retry,
-                (
-                    WIDTH // 2 - retry.get_width() // 2,
-                    420
-                )
-            )
+            victory_screen.draw(screen, level.run_score.result, phase_number)
 
         # TELA DE GAME OVER
 
-        if game_over:
-
-            overlay = pygame.Surface(
-                (WIDTH, HEIGHT),
-                pygame.SRCALPHA
-            )
-
-            overlay.fill((0, 0, 0, 190))
-
-            screen.blit(
-                overlay,
-                (0, 0)
-            )
-
-            title = big_font.render(
-                "O SOM SE CALOU",
-                True,
-                (196, 58, 55)
-            )
-
-            retry = font.render(
-                "R: tentar novamente  |  "
-                "ESC: voltar ao início",
-                True,
-                (240, 240, 240)
-            )
-
-            screen.blit(
-                title,
-                (
-                    WIDTH // 2 - title.get_width() // 2,
-                    285
-                )
-            )
-
-            screen.blit(
-                retry,
-                (
-                    WIDTH // 2 - retry.get_width() // 2,
-                    380
-                )
-            )
+        if game_over and player.death_tick >= 50:
+            defeat_screen.draw(screen, level.run_score.result, phase_number)
 
     # ATUALIZAÇÃO DA JANELA
 

@@ -1,6 +1,48 @@
 from pathlib import Path
+from functools import lru_cache
 import pygame
 
+
+def begin_defeat(enemy, image):
+    enemy.death_timer = 55
+    enemy.defeat_image = image.copy()
+    enemy.defeat_pos = pygame.Vector2(enemy.rect.center)
+    enemy.defeat_velocity = pygame.Vector2(-2 * getattr(enemy, "direction", 1), -5)
+
+
+def update_defeat(enemy):
+    if getattr(enemy, "death_timer", 0) > 0:
+        enemy.death_timer -= 1
+        enemy.defeat_velocity.y += 0.65
+        enemy.defeat_pos += enemy.defeat_velocity
+
+
+def draw_defeat(enemy, screen, camera_x):
+    if getattr(enemy, "death_timer", 0) <= 0:
+        return
+    image = pygame.transform.rotate(enemy.defeat_image,
+                                    max(0, 47 - enemy.death_timer) * 3)
+    if enemy.death_timer > 47:
+        image.fill((255, 120, 120, 255), special_flags=pygame.BLEND_RGBA_MULT)
+    if enemy.death_timer < 15:
+        image.set_alpha(enemy.death_timer * 17)
+    screen.blit(image, image.get_rect(center=(round(enemy.defeat_pos.x - camera_x),
+                                             round(enemy.defeat_pos.y))))
+
+
+@lru_cache(maxsize=4)
+def collectible_frame(index):
+    """Recorta guitarra, microfone, bateria e baixo sem dividir instrumentos."""
+    path = Path(__file__).resolve().parent / "assets" / "images" / "coletaveis_atlas.png"
+    sheet = pygame.image.load(str(path)).convert_alpha()
+    width, height = sheet.get_size()
+    edges = (0, 0.29, 0.46, 0.77, 1)
+    left, right = round(edges[index] * width), round(edges[index + 1] * width)
+    frame = sheet.subsurface((left, 0, right - left, height))
+    bounds = frame.get_bounding_rect(min_alpha=10)
+    if not bounds.width or not bounds.height:
+        raise ValueError(f"Coletável vazio no índice {index}")
+    return frame.subsurface(bounds).copy()
 
 def load_enemy_frames(filename, frame_size):
 
@@ -166,69 +208,20 @@ def load_cloud_effects():
     return lightning, death_frames
 
 def load_bone_bat_frames():
-    """Carrega as poses do morcego ósseo da imagem original."""
-
-    path = (
-        Path(__file__).resolve().parent
-        / "assets"
-        / "images"
-        / "inimigos_fase3_atlas.png"
-    )
-
+    """Seis poses completas do atlas exclusivo do morcego ósseo."""
+    path = Path(__file__).resolve().parent / "assets" / "images" / "morcego_osseo_fase3_atlas.png"
     sheet = pygame.image.load(str(path)).convert_alpha()
-
-    # Recortes individuais da primeira linha de morcegos.
-    # Evita dividir a imagem inteira em uma grade.
-    frame_rects = [
-        (0, 670, 275, 180),
-        (280, 670, 275, 180),
-        (560, 670, 285, 180),
-        (850, 670, 275, 180),
-    ]
-
+    rects = ((12, 459, 325, 156), (347, 495, 318, 159),
+             (676, 485, 314, 170), (1022, 459, 331, 191),
+             (1380, 509, 296, 162), (1741, 520, 417, 151))
     frames = []
-
-    for rect in frame_rects:
-
+    scale = 125 / 417
+    for rect in rects:
         frame = sheet.subsurface(rect).copy()
-
-        bounds = frame.get_bounding_rect(min_alpha=10)
-
-        if bounds.width == 0 or bounds.height == 0:
-            raise ValueError(f"Recorte vazio: {rect}")
-
-        frame = frame.subsurface(bounds).copy()
-
-        scale = min(
-            125 / frame.get_width(),
-            88 / frame.get_height()
-        )
-
-        width = max(1, round(frame.get_width() * scale))
-        height = max(1, round(frame.get_height() * scale))
-
-        frame = pygame.transform.scale(
-            frame,
-            (width, height)
-        )
-
-        canvas = pygame.Surface(
-            (132, 96),
-            pygame.SRCALPHA
-        )
-
-        canvas.blit(
-            frame,
-            frame.get_rect(center=(66, 48))
-        )
-
+        frame = pygame.transform.smoothscale(frame, (round(rect[2] * scale), round(rect[3] * scale)))
+        canvas = pygame.Surface((132, 96), pygame.SRCALPHA)
+        canvas.blit(frame, frame.get_rect(center=(66, 48)))
         frames.append(canvas)
-
-    # A inteligência do FlyingEnemy utiliza seis índices.
-    # Reutilizamos duas poses para os estados de ataque.
-    frames.append(frames[2].copy())
-    frames.append(frames[3].copy())
-
     return frames
 
 STEEL_DARK = (20, 27, 36)
@@ -648,38 +641,19 @@ class Guitar(pygame.sprite.Sprite):
     def load_sprites():
         """Carrega os quatro instrumentos do spritesheet."""
 
-        path = (
-            Path(__file__).resolve().parent
-            / "assets"
-            / "images"
-            / "coletaveis_atlas.png"
-        )
-
-        sheet = pygame.image.load(str(path)).convert_alpha()
-        width, height = sheet.get_size()
         sprites = []
-
         for index in range(4):
-            left = round(index * width / 4)
-            right = round((index + 1) * width / 4)
-            frame = sheet.subsurface(
-                (left, 0, right - left, height)
-            ).copy()
-            bounds = frame.get_bounding_rect(min_alpha=10)
-            if bounds.width == 0 or bounds.height == 0:
-                raise ValueError(
-                    f"Coletável vazio no índice {index}"
-                )
-            frame = frame.subsurface(bounds).copy()
+            frame = collectible_frame(index)
+            max_width, max_height = (80, 76) if index == 2 else (56, 72)
             scale = min(
-                48 / frame.get_width(),
-                60 / frame.get_height()
+                max_width / frame.get_width(),
+                max_height / frame.get_height()
             )
             new_size = (
                 max(1, round(frame.get_width() * scale)),
                 max(1, round(frame.get_height() * scale))
             )
-            frame = pygame.transform.scale(frame, new_size)
+            frame = pygame.transform.smoothscale(frame, new_size)
             sprites.append(frame)
         return sprites
 
@@ -687,35 +661,16 @@ class Guitar(pygame.sprite.Sprite):
         if self.collected:
             return
         sprite_index = {
-            1: 0,
-            2: 1,
+            1: 3,
+            2: 0,
             3: 2
         }.get(self.phase_number, 0)
         image = self._sprites[sprite_index]
         draw_rect = image.get_rect(
-            center=self.rect.center
+            midbottom=(self.rect.centerx, self.rect.bottom + 4)
         )
 
         draw_rect.x -= camera_x
-        # Cria um contorno claro ao redor do instrumento.
-        mask = pygame.mask.from_surface(image)
-        outline = mask.to_surface(
-            setcolor=(255, 220, 140),
-            unsetcolor=(0, 0, 0)
-        )
-        outline.set_colorkey((0, 0, 0))
-        # Contorno de 2 pixels.
-        for dx, dy in [
-            (-2, 0),
-            (2, 0),
-            (0, -2),
-            (0, 2),
-        ]:
-            screen.blit(
-                outline,
-                draw_rect.move(dx, dy)
-            )
-        # Desenha o instrumento por cima do contorno.
         screen.blit(image, draw_rect)
 
 class Enemy(pygame.sprite.Sprite):
@@ -728,8 +683,20 @@ class Enemy(pygame.sprite.Sprite):
         self.max_x = max_x
         self.alive = True
 
+    def take_hit(self):
+        if not self.alive:
+            return
+        image = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+        original_rect = self.rect
+        self.rect = image.get_rect()
+        self.draw(image, 0)
+        self.rect = original_rect
+        self.alive = False
+        begin_defeat(self, image)
+
     def update(self):
         if not self.alive:
+            update_defeat(self)
             return
 
         self.x += self.speed
@@ -741,6 +708,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def draw(self, screen, camera_x):
         if not self.alive:
+            draw_defeat(self, screen, camera_x)
             return
 
         r = self.rect.move(-camera_x, 0)
@@ -760,32 +728,84 @@ class Enemy(pygame.sprite.Sprite):
             draw_rivet(screen, x, r.bottom - 5)
 
 
+class SpiderEnemy(Enemy):
+    """Aranha de contato que percorre um trecho inteiro de chão."""
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def load_frames():
+        path = Path(__file__).resolve().parent / "assets" / "images" / "aranha_fase1.png"
+        sheet = pygame.image.load(str(path)).convert_alpha()
+        frames = []
+        for index in range(4):
+            left = round(index * sheet.get_width() / 4)
+            right = round((index + 1) * sheet.get_width() / 4)
+            frame = sheet.subsurface((left, 0, right - left, sheet.get_height()))
+            frame = frame.subsurface(frame.get_bounding_rect(min_alpha=20)).copy()
+            scale = min(96 / frame.get_width(), 54 / frame.get_height())
+            frame = pygame.transform.smoothscale(
+                frame, (round(frame.get_width() * scale), round(frame.get_height() * scale)))
+            canvas = pygame.Surface((96, 54), pygame.SRCALPHA)
+            canvas.blit(frame, frame.get_rect(midbottom=(48, 54)))
+            frames.append(canvas)
+        return frames
+
+    def __init__(self, x, ground_y, min_x, max_x):
+        super().__init__(x, ground_y - 50, min_x, max_x)
+        self.rect.size = (96, 50)
+        self.x = float(max(min_x, min(x, max_x - self.rect.width)))
+        self.rect.x = round(self.x)
+        self.speed = 1.6
+        self.direction = -1
+        self.animation_tick = 0
+        self.frames = self.load_frames()
+
+    def update(self):
+        if not self.alive:
+            update_defeat(self)
+            return
+        self.animation_tick += 1
+        self.x += self.speed * self.direction
+        if self.x <= self.min_x:
+            self.x = float(self.min_x)
+            self.direction = 1
+        elif self.x >= self.max_x - self.rect.width:
+            self.x = float(self.max_x - self.rect.width)
+            self.direction = -1
+        self.rect.x = round(self.x)
+
+    def current_frame(self):
+        frame = self.frames[(self.animation_tick // 7) % len(self.frames)]
+        # O atlas original está olhando para a esquerda.
+        return pygame.transform.flip(frame, True, False) if self.direction > 0 else frame
+
+    def take_hit(self):
+        if self.alive:
+            self.alive = False
+            begin_defeat(self, self.current_frame())
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            draw_defeat(self, screen, camera_x)
+            return
+        frame = self.current_frame()
+        screen.blit(frame, frame.get_rect(midbottom=(self.rect.centerx - camera_x,
+                                                      self.rect.bottom)))
+
+
 class GoalInstrument:
 
     _image = None
 
     def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, 70, 90)
         if GoalInstrument._image is None:
             GoalInstrument._image = self.load_image()
+        # O argumento ancora a base; desenho e área de coleta são iguais.
+        self.rect = self._image.get_rect(midbottom=(x + 35, y + 90))
 
     @staticmethod
     def load_image():
-        path = (
-            Path(__file__).resolve().parent
-            / "assets"
-            / "images"
-            / "coletavel_final.png"
-        )
-        image = pygame.image.load(
-            str(path)
-        ).convert_alpha()
-        bounds = image.get_bounding_rect(min_alpha=10)
-        if bounds.width == 0 or bounds.height == 0:
-            raise ValueError(
-                "A imagem do coletável final está vazia."
-            )
-        image = image.subsurface(bounds).copy()
+        image = collectible_frame(1)
         scale = min(
             95 / image.get_width(),
             115 / image.get_height()
@@ -799,11 +819,7 @@ class GoalInstrument:
 
     def draw(self, screen, camera_x):
         image = self._image
-        draw_rect = image.get_rect(
-            center=self.rect.center
-        )
-
-        draw_rect.x -= camera_x
+        draw_rect = self.rect.move(-camera_x, 0)
         screen.blit(image, draw_rect)
 
 class FlyingEnemy(pygame.sprite.Sprite):
@@ -834,6 +850,7 @@ class FlyingEnemy(pygame.sprite.Sprite):
 
         self.health = 1
         self.alive = True
+        self.hurt_timer = 0
 
         # Animação
         self.animation_tick = 0
@@ -866,7 +883,11 @@ class FlyingEnemy(pygame.sprite.Sprite):
     def update(self, player=None):
 
         if not self.alive:
+            update_defeat(self)
             return
+
+        if self.hurt_timer > 0:
+            self.hurt_timer -= 1
 
         # Cooldown
         if self.attack_cooldown > 0:
@@ -1093,11 +1114,16 @@ class FlyingEnemy(pygame.sprite.Sprite):
             return
 
         self.health -= 1
+        self.hurt_timer = 16
 
         if self.health <= 0:
 
             self.alive = False
             self.projectiles.clear()
+            image = self.frames[min(6, len(self.frames) - 1)]
+            if self.direction < 0:
+                image = pygame.transform.flip(image, True, False)
+            begin_defeat(self, image)
 
     # ANIMAÇÃO
 
@@ -1105,7 +1131,10 @@ class FlyingEnemy(pygame.sprite.Sprite):
 
         self.animation_tick += 1
 
-        if self.state == "dive":
+        if self.hurt_timer > 0:
+            self.animation_index = min(6, len(self.frames) - 1)
+
+        elif self.state == "dive":
 
             self.animation_index = 4
 
@@ -1129,6 +1158,7 @@ class FlyingEnemy(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
 
         if not self.alive:
+            draw_defeat(self, screen, camera_x)
             return
 
         frame = self.frames[self.animation_index]
@@ -1188,9 +1218,27 @@ class BoneBatEnemy(FlyingEnemy):
         self.detection_range = 300
         # Velocidade dos disparos.
         self.projectile_speed = 5.5
+        self.bone_sprite = pygame.Surface((34, 18), pygame.SRCALPHA)
+        # Osso com haste e duas articulações, em vez de um losango.
+        for color, radius, thickness in (((65, 55, 58), 5, 9),
+                                         ((230, 221, 195), 3, 5)):
+            pygame.draw.line(self.bone_sprite, color, (7, 9), (27, 9), thickness)
+            for x in (5, 28):
+                for y in (5, 12):
+                    pygame.draw.circle(self.bone_sprite, color, (x, y), radius)
+        pygame.draw.line(self.bone_sprite, (255, 247, 220), (9, 7), (24, 7), 2)
+
+    def shoot(self, player):
+        super().shoot(player)
+        projectile = self.projectiles[-1]
+        center = projectile["rect"].center
+        projectile["rect"].size = (24, 12)
+        projectile["rect"].center = center
+
     def draw(self, screen, camera_x):
 
         if not self.alive:
+            draw_defeat(self, screen, camera_x)
             return
 
         # Desenha o morcego.
@@ -1210,55 +1258,13 @@ class BoneBatEnemy(FlyingEnemy):
         draw_rect.x -= camera_x
         screen.blit(frame, draw_rect)
 
-        # Desenha os projéteis como fragmentos de ossos.
+        # O osso gira em torno do próprio centro durante o voo.
         for projectile in self.projectiles:
-            center = pygame.Vector2(
-                projectile["rect"].centerx - camera_x,
-                projectile["rect"].centery
-            )
-            direction = pygame.Vector2(
-                projectile["velocity"]
-            )
-            if direction.length_squared() == 0:
-                direction = pygame.Vector2(1, 0)
-            else:
-                direction = direction.normalize()
-            perpendicular = pygame.Vector2(
-                -direction.y,
-                direction.x
-            )
-
-            # Corpo do fragmento.
-            tip = center + direction * 9
-            back = center - direction * 7
-            points = [
-                tip,
-                center + perpendicular * 4,
-                back,
-                center - perpendicular * 4,
-            ]
-            pygame.draw.polygon(
-                screen,
-                (225, 216, 195),
-                points
-            )
-            pygame.draw.polygon(
-                screen,
-                (95, 86, 85),
-                points,
-                2
-            )
-
-            # Pequeno detalhe vermelho.
-            pygame.draw.circle(
-                screen,
-                (145, 45, 51),
-                (
-                    round(center.x),
-                    round(center.y)
-                ),
-                2
-            )
+            angle = -pygame.Vector2(projectile["velocity"]).as_polar()[1]
+            angle += (120 - projectile["lifetime"]) * 12
+            image = pygame.transform.rotate(self.bone_sprite, angle)
+            center = (projectile["rect"].centerx - camera_x, projectile["rect"].centery)
+            screen.blit(image, image.get_rect(center=center))
 
 class HeavyEnemy(pygame.sprite.Sprite):
     """
@@ -1339,10 +1345,7 @@ class HeavyEnemy(pygame.sprite.Sprite):
 
     def update(self, player=None):
         if not self.alive:
-
-            if self.death_timer > 0:
-                self.death_timer -= 1
-
+            update_defeat(self)
             return
 
         # Atualiza cooldown
@@ -1472,6 +1475,7 @@ class HeavyEnemy(pygame.sprite.Sprite):
         self.health -= 1
 
         self.hurt_timer = 18
+        self.animation_index = 6
 
         # Interrompe a investida
         self.state = "patrol"
@@ -1480,7 +1484,10 @@ class HeavyEnemy(pygame.sprite.Sprite):
 
             self.alive = False
 
-            self.death_timer = 35
+            image = self.frames[7]
+            if self.direction < 0:
+                image = pygame.transform.flip(image, True, False)
+            begin_defeat(self, image)
 
     # ANIMAÇÃO
 
@@ -1518,11 +1525,8 @@ class HeavyEnemy(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
 
         if not self.alive:
-
-            if self.death_timer <= 0:
-                return
-
-            frame = self.frames[7]
+            draw_defeat(self, screen, camera_x)
+            return
 
         else:
 

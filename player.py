@@ -5,12 +5,6 @@ import pygame
 from settings import *
 
 
-SPRITESHEET_PATH = (
-    Path(__file__).resolve().parent
-    / "assets"
-    / "images"
-    / "metal_vocalist_spritesheet_final.png"
-)
 PHASE3_SPRITESHEET_PATH = (
     Path(__file__).resolve().parent
     / "assets"
@@ -29,8 +23,17 @@ PHASE1_SPRITESHEET_PATH = (
     / "images"
     / "metal_vocalist_phase1_spritesheet.png"
 )
-SPRITE_GRID = 4
 FRAME_CANVAS_SIZE = (110, 108)
+
+FINAL_SPRITESHEET_PATH = Path(__file__).resolve().parent / "assets/images/personagem_fase_final.png"
+FINAL_FRAME_RECTS = (
+    (87, 15, 154, 329), (442, 12, 161, 332),
+    (798, 24, 191, 320), (1151, 24, 219, 322),
+    (52, 407, 235, 297), (452, 409, 184, 295),
+    (756, 374, 269, 256), (1109, 392, 281, 307),
+    (41, 783, 267, 295), (383, 778, 305, 300),
+    (763, 773, 246, 304), (1158, 727, 222, 350),
+)
 
 # Recortes do spritesheet do personagem da FASE 1.
 # Cada tupla representa (x, y, largura, altura).
@@ -63,6 +66,7 @@ PHASE1_FRAME_RECTS = (
 
     # 15 - Recebendo dano
     (207, 700, 190, 290),
+    (630, 850, 330, 120),
 )
 
 # A folha da FASE 3 tem poses com espaçamento irregular. As caixas abaixo
@@ -75,59 +79,21 @@ PHASE3_FRAME_RECTS = (
     (1200, 330, 336, 340), (1200, 330, 336, 340),
     (930, 330, 280, 340), (930, 330, 280, 340),
     (0, 330, 380, 340), (400, 330, 280, 340),
-    (650, 330, 270, 340), (930, 330, 280, 340),
+    (650, 330, 270, 340), (230, 670, 245, 320),
+    (770, 860, 310, 115),
 )
 
 PHASE2_FRAME_RECTS = (
-    (60, 20, 190, 330), (270, 20, 200, 330),
-    (490, 20, 200, 330), (710, 20, 200, 330),
-    (270, 20, 200, 330), (490, 20, 200, 330),
-    (710, 20, 200, 330), (930, 20, 200, 330),
-    (1280, 350, 256, 350), (1280, 350, 256, 350),
-    (760, 350, 250, 350), (1030, 350, 260, 350),
-    (30, 350, 290, 350), (300, 350, 250, 350),
-    (530, 350, 240, 350), (460, 680, 190, 344),
+    (75, 40, 175, 300), (284, 40, 160, 300),
+    (501, 40, 170, 300), (697, 40, 176, 300),
+    (905, 40, 175, 300), (1126, 41, 151, 299),
+    (1319, 41, 163, 299), (697, 40, 176, 300),
+    (1286, 369, 200, 266), (1066, 385, 173, 258),
+    (1066, 385, 173, 258), (1286, 369, 200, 266),
+    (44, 394, 274, 288), (280, 403, 234, 280),
+    (512, 424, 207, 258), (234, 720, 188, 273),
+    (634, 874, 325, 116),
 )
-
-
-def load_character_frames():
-    """Divide a folha 4x4 e mantém a mesma escala em todos os quadros."""
-    sheet = pygame.image.load(str(SPRITESHEET_PATH))
-    if pygame.display.get_surface():
-        sheet = sheet.convert_alpha()
-
-    sheet_width, sheet_height = sheet.get_size()
-    cropped_frames = []
-
-    for row in range(SPRITE_GRID):
-        top = round(row * sheet_height / SPRITE_GRID)
-        bottom = round((row + 1) * sheet_height / SPRITE_GRID)
-        for column in range(SPRITE_GRID):
-            left = round(column * sheet_width / SPRITE_GRID)
-            right = round((column + 1) * sheet_width / SPRITE_GRID)
-            frame = sheet.subsurface((left, top, right - left, bottom - top)).copy()
-            bounds = frame.get_bounding_rect(min_alpha=10)
-            cropped_frames.append(frame.subsurface(bounds).copy())
-
-    max_height = max(frame.get_height() for frame in cropped_frames)
-    # A altura governa a escala para que ataques largos não encolham o personagem.
-    scale = 98 / max_height
-    frames = []
-
-    for cropped in cropped_frames:
-        scaled_size = (
-            max(1, round(cropped.get_width() * scale)),
-            max(1, round(cropped.get_height() * scale)),
-        )
-        scaled = pygame.transform.scale(cropped, scaled_size)
-        canvas = pygame.Surface(FRAME_CANVAS_SIZE, pygame.SRCALPHA)
-        destination = scaled.get_rect(
-            midbottom=(FRAME_CANVAS_SIZE[0] // 2, FRAME_CANVAS_SIZE[1] - 4)
-        )
-        canvas.blit(scaled, destination)
-        frames.append(canvas)
-
-    return frames
 
 
 def load_character_frames_from_rects(sheet_path, frame_rects):
@@ -138,11 +104,16 @@ def load_character_frames_from_rects(sheet_path, frame_rects):
     cropped_frames = []
     for rect in frame_rects:
         frame = sheet.subsurface(rect).copy()
+        # Elimina fragmentos de poses vizinhas que entram no recorte.
+        mask = pygame.mask.from_surface(frame, threshold=127).connected_component()
+        frame.blit(mask.to_surface(setcolor=(255, 255, 255, 255),
+                                   unsetcolor=(255, 255, 255, 0)),
+                   (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         bounds = frame.get_bounding_rect(min_alpha=10)
         cropped_frames.append(frame.subsurface(bounds).copy())
 
-    max_height = max(frame.get_height() for frame in cropped_frames)
-    scale = 98 / max_height
+    # A pose parada usa a mesma altura nas três fases.
+    scale = 96 / cropped_frames[0].get_height()
     frames = []
 
     for cropped in cropped_frames:
@@ -184,6 +155,18 @@ def load_phase3_character_frames():
     )
 
 
+def load_final_character_frames():
+    frames = load_character_frames_from_rects(FINAL_SPRITESHEET_PATH, FINAL_FRAME_RECTS)
+    # A folha não tem pose deitada; deriva a queda da própria pose de dano.
+    fallen = pygame.transform.rotate(frames[10], -90)
+    fallen = fallen.subsurface(fallen.get_bounding_rect(min_alpha=10)).copy()
+    canvas = pygame.Surface(FRAME_CANVAS_SIZE, pygame.SRCALPHA)
+    canvas.blit(fallen, fallen.get_rect(midbottom=(55, 104)))
+    frames.extend([frames[10]] * (16 - len(frames)))
+    frames.append(canvas)
+    return frames
+
+
 def style_acdc_frames(frames):
     styled_frames = []
     for frame in frames:
@@ -201,15 +184,6 @@ def style_acdc_frames(frames):
 
 
 class Player(pygame.sprite.Sprite):
-    ANIMATIONS = {
-        "idle": (0, 1, 2, 3),
-        "walk": (4, 5, 6, 7),
-        "jump": (8, 9),
-        "fall": (10, 11),
-        "attack": (12, 13, 14),
-        "hurt": (15,),
-    }
-
     PHASE1_ANIMATIONS = {
         "idle": (0,),
         "walk": (1, 2, 3, 4, 5, 6, 7),
@@ -235,6 +209,15 @@ class Player(pygame.sprite.Sprite):
         "fall": (10, 11),
         "attack": (12, 13, 14),
         "hurt": (15,),
+    }
+
+    FINAL_ANIMATIONS = {
+        "idle": (0, 1),
+        "walk": (2, 3, 4, 5),
+        "jump": (6,),
+        "fall": (7,),
+        "attack": (8, 9, 8),
+        "hurt": (10,),
     }
 
     FRAME_SPEEDS = {
@@ -263,9 +246,13 @@ class Player(pygame.sprite.Sprite):
             self.frames = load_phase3_character_frames()
             self.animations = self.PHASE3_ANIMATIONS
 
+        elif phase_number == 4:
+            self.frames = load_final_character_frames()
+            self.animations = self.FINAL_ANIMATIONS
+
         else:
-            self.frames = load_character_frames()
-            self.animations = self.ANIMATIONS
+            self.frames = load_phase1_character_frames()
+            self.animations = self.PHASE1_ANIMATIONS
 
         self.image = self.frames[0]
 
@@ -276,13 +263,15 @@ class Player(pygame.sprite.Sprite):
 
         self.on_ground = False
         self.facing = 1
-        self.jump_strength = -20 if phase_number == 3 else PLAYER_JUMP
+        self.jump_strength = PLAYER_JUMP
         self.health = 3
         self.score = 0
 
         self.attack_timer = 0
         self.attack_cooldown = 20
         self.invulnerability = 0
+        self.death_tick = 0
+        self.death_velocity = 0
 
         self.animation_state = "idle"
         self.animation_tick = 0
@@ -306,13 +295,15 @@ class Player(pygame.sprite.Sprite):
             self.on_ground = False
 
     def start_attack(self):
-        if self.attack_timer <= 0:
+        if self.health > 0 and self.invulnerability <= 62 and self.attack_timer <= 0:
             self.attack_timer = self.attack_cooldown
             self.animation_state = "attack"
             self.animation_tick = 0
             self.animation_index = 0
 
     def get_attack_rect(self):
+        if self.health <= 0 or self.invulnerability > 62:
+            return None
         elapsed = self.attack_cooldown - self.attack_timer
         if self.attack_timer > 0 and 5 <= elapsed <= 12:
             if self.facing == 1:
@@ -321,13 +312,36 @@ class Player(pygame.sprite.Sprite):
         return None
 
     def take_damage(self):
-        if self.invulnerability <= 0:
+        if self.health > 0 and self.invulnerability <= 0:
             self.health -= 1
             self.invulnerability = 80
             self.vel.y = -8
             self.animation_state = "hurt"
             self.animation_tick = 0
             self.animation_index = 0
+            self.attack_timer = 0
+            self.image = self.frames[self.animations["hurt"][0]]
+            if self.health <= 0:
+                self.death_velocity = -6
+
+    def update_death(self, platforms):
+        self.death_tick += 1
+        self.animation_state = "dead"
+        if self.death_tick < 10:
+            self.image = self.frames[self.animations["hurt"][0]]
+        else:
+            self.image = self.frames[16] if len(self.frames) > 16 else self.frames[15]
+        previous_bottom = self.rect.bottom
+        self.death_velocity = min(18, self.death_velocity + GRAVITY)
+        self.pos.y += self.death_velocity
+        self.rect.y = round(self.pos.y)
+        for platform in platforms:
+            if (self.death_velocity >= 0 and previous_bottom <= platform.rect.top <= self.rect.bottom
+                    and self.rect.right > platform.rect.left and self.rect.left < platform.rect.right):
+                self.rect.bottom = platform.rect.top
+                self.pos.y = self.rect.y
+                self.death_velocity = 0
+                break
 
     def choose_animation_state(self):
         if self.invulnerability > 62:
@@ -360,6 +374,9 @@ class Player(pygame.sprite.Sprite):
         self.image = self.frames[frames[self.animation_index]]
 
     def update(self, platforms):
+        if self.health <= 0:
+            self.update_death(platforms)
+            return
         self.handle_input()
 
         if self.attack_timer > 0:
@@ -401,10 +418,14 @@ class Player(pygame.sprite.Sprite):
             self.rect.left = 0
             self.pos.x = self.rect.x
 
+        if self.rect.right > LEVEL_WIDTH:
+            self.rect.right = LEVEL_WIDTH
+            self.pos.x = self.rect.x
+
         self.update_animation()
 
     def draw(self, screen, camera_x):
-        if self.invulnerability > 0 and (self.invulnerability // 5) % 2 == 0:
+        if self.health > 0 and 0 < self.invulnerability <= 62 and (self.invulnerability // 5) % 2 == 0:
             return
 
         draw_rect = self.rect.move(-camera_x, 0)
@@ -415,6 +436,8 @@ class Player(pygame.sprite.Sprite):
         sprite_rect = image.get_rect()
         sprite_rect.centerx = draw_rect.centerx
         sprite_rect.y = draw_rect.bottom - visible_bounds.bottom
+        if self.phase_number == 3:
+            sprite_rect.y += 3
         screen.blit(image, sprite_rect)
 
         attack_rect = self.get_attack_rect()
